@@ -2,6 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebas
 import { getDatabase, ref, push, onValue, set, get, update, serverTimestamp, query, orderByChild, limitToLast } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-database.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification, onAuthStateChanged, setPersistence, browserLocalPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-storage.js";
+import { getApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
 
 // Firebase yapılandırması
 const firebaseConfig = {
@@ -154,7 +155,7 @@ messageInput.addEventListener('input', () => {
 
     clearTimeout(typingTimeout);
     typingTimeout = setTimeout(() => {
-        const typingRef = ref(database, `${currentChatType}s/${currentChat}/typing/${currentUser.uid}`);
+        const typingRef = ref(database, `${currentChatType}/${currentChat}/typing/${currentUser.uid}`);
         set(typingRef, false);
     }, 3000);
 });
