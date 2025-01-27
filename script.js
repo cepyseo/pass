@@ -64,20 +64,62 @@ mobileMenuBtn?.addEventListener('click', () => {
     sidebar.classList.toggle('active');
 });
 
-// Arama fonksiyonu
+// Arama fonksiyonunu güncelle
 searchInput.addEventListener('input', (e) => {
-    const searchTerm = e.target.value.toLowerCase();
+    const searchTerm = e.target.value.toLowerCase().trim();
     filterList(searchTerm);
 });
 
+// Gelişmiş filtreleme fonksiyonu
 function filterList(searchTerm) {
-    const userItems = userList.getElementsByClassName('user-item');
-    const groupItems = groupList.getElementsByClassName('group-item');
+    // Kullanıcıları filtrele
+    const userItems = document.querySelectorAll('.user-item');
+    const groupItems = document.querySelectorAll('.group-item');
+    
+    if (searchTerm === '') {
+        // Arama terimi yoksa tüm listeleri göster
+        userItems.forEach(item => item.style.display = '');
+        groupItems.forEach(item => item.style.display = '');
+        return;
+    }
 
-    [...userItems, ...groupItems].forEach(item => {
-        const text = item.textContent.toLowerCase();
-        item.style.display = text.includes(searchTerm) ? '' : 'none';
+    let hasResults = false;
+
+    // Kullanıcıları filtrele
+    userItems.forEach(item => {
+        const userName = item.querySelector('.user-name').textContent.toLowerCase();
+        if (userName.includes(searchTerm)) {
+            item.style.display = '';
+            hasResults = true;
+        } else {
+            item.style.display = 'none';
+        }
     });
+
+    // Grupları filtrele
+    groupItems.forEach(item => {
+        const groupName = item.querySelector('.group-name').textContent.toLowerCase();
+        if (groupName.includes(searchTerm)) {
+            item.style.display = '';
+            hasResults = true;
+        } else {
+            item.style.display = 'none';
+        }
+    });
+
+    // Sonuç bulunamadı mesajını göster/gizle
+    const noResultsMessage = document.getElementById('noResultsMessage');
+    if (!hasResults) {
+        if (!noResultsMessage) {
+            const message = document.createElement('div');
+            message.id = 'noResultsMessage';
+            message.className = 'no-results';
+            message.textContent = 'Sonuç bulunamadı';
+            document.querySelector('.chat-list').appendChild(message);
+        }
+    } else {
+        noResultsMessage?.remove();
+    }
 }
 
 // Çevrimiçi durumu yönetimi
@@ -408,52 +450,107 @@ createGroupBtn.addEventListener('click', async () => {
     }
 });
 
-// Kullanıcıları yükle
+// Kullanıcıları yükleme fonksiyonunu güncelle
 async function loadUsers() {
     const usersRef = ref(database, 'users');
     onValue(usersRef, (snapshot) => {
-        userList.innerHTML = '<div class="list-header"><h3>Kullanıcılar</h3></div>';
+        userList.innerHTML = `
+            <div class="list-header">
+                <h3>Kullanıcılar</h3>
+                <span class="online-count"></span>
+            </div>
+        `;
+        
+        let onlineCount = 0;
         snapshot.forEach((childSnapshot) => {
             const userData = childSnapshot.val();
             const userId = childSnapshot.key;
+            
             if (userId !== currentUser.uid) {
                 const userElement = document.createElement('div');
                 userElement.className = 'user-item';
                 
-                const statusDot = document.createElement('span');
-                statusDot.className = `online-status ${userData.status === 'online' ? '' : 'offline-status'}`;
+                const isOnline = userData.status === 'online';
+                if (isOnline) onlineCount++;
                 
-                const userName = document.createElement('span');
-                userName.textContent = userData.name;
+                userElement.innerHTML = `
+                    <div class="user-avatar">
+                        ${userData.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div class="user-info">
+                        <div class="user-name">${userData.name}</div>
+                        <div class="user-status">
+                            <span class="status-dot ${isOnline ? 'online' : 'offline'}"></span>
+                            ${isOnline ? 'Çevrimiçi' : 'Çevrimdışı'}
+                        </div>
+                    </div>
+                    <div class="unread-badge" style="display: none">0</div>
+                `;
                 
-                const unreadBadge = document.createElement('span');
-                unreadBadge.className = 'unread-badge';
-                unreadBadge.style.display = 'none';
+                userElement.onclick = () => {
+                    // Aktif sohbeti güncelle
+                    document.querySelectorAll('.user-item.active, .group-item.active')
+                        .forEach(item => item.classList.remove('active'));
+                    userElement.classList.add('active');
+                    
+                    startPrivateChat(userId, userData.name);
+                };
                 
-                userElement.appendChild(statusDot);
-                userElement.appendChild(userName);
-                userElement.appendChild(unreadBadge);
-                
-                userElement.onclick = () => startPrivateChat(userId, userData.name);
                 userList.appendChild(userElement);
             }
         });
+        
+        // Çevrimiçi kullanıcı sayısını güncelle
+        const onlineCountElement = userList.querySelector('.online-count');
+        if (onlineCountElement) {
+            onlineCountElement.textContent = `${onlineCount} çevrimiçi`;
+        }
     });
 }
 
-// Grupları yükle
+// Grupları yükleme fonksiyonunu güncelle
 function loadGroups() {
     const groupsRef = ref(database, 'groups');
     onValue(groupsRef, (snapshot) => {
-        groupList.innerHTML = '<h3>Gruplar</h3>';
+        groupList.innerHTML = `
+            <div class="list-header">
+                <h3>Gruplar</h3>
+                <button class="refresh-btn" onclick="loadGroups()">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+        `;
+        
         snapshot.forEach((childSnapshot) => {
             const groupData = childSnapshot.val();
             const groupId = childSnapshot.key;
+            
             if (groupData.members && groupData.members[currentUser.uid]) {
                 const groupElement = document.createElement('div');
                 groupElement.className = 'group-item';
-                groupElement.textContent = groupData.name;
-                groupElement.onclick = () => openGroupChat(groupId, groupData.name);
+                
+                groupElement.innerHTML = `
+                    <div class="group-avatar">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="group-info">
+                        <div class="group-name">${groupData.name}</div>
+                        <div class="group-members">
+                            ${Object.keys(groupData.members).length} üye
+                        </div>
+                    </div>
+                    <div class="unread-badge" style="display: none">0</div>
+                `;
+                
+                groupElement.onclick = () => {
+                    // Aktif sohbeti güncelle
+                    document.querySelectorAll('.user-item.active, .group-item.active')
+                        .forEach(item => item.classList.remove('active'));
+                    groupElement.classList.add('active');
+                    
+                    openGroupChat(groupId, groupData.name);
+                };
+                
                 groupList.appendChild(groupElement);
             }
         });
