@@ -160,10 +160,9 @@ messageInput.addEventListener('input', () => {
 });
 
 // Yazıyor durumunu dinle
-function listenToTyping() {
-    if (!currentChat) return;
-
-    const typingRef = ref(database, `${currentChatType}s/${currentChat}/typing`);
+function listenToTyping(chatId, type) {
+    const typingRef = ref(database, `${type}/${chatId}/typing`);
+    
     onValue(typingRef, (snapshot) => {
         const typing = snapshot.val();
         if (!typing) {
@@ -181,8 +180,16 @@ function listenToTyping() {
             Promise.all(typingUsers.map(uid => 
                 get(ref(database, `users/${uid}/name`))
             )).then(snapshots => {
-                const names = snapshots.map(snap => snap.val());
-                typingIndicator.textContent = names.join(', ') + ' yazıyor...';
+                const names = snapshots
+                    .map(snap => snap.val())
+                    .filter(name => name); // null değerleri filtrele
+                
+                if (names.length > 0) {
+                    typingIndicator.textContent = names.join(', ') + 
+                        (names.length === 1 ? ' yazıyor...' : ' yazıyorlar...');
+                } else {
+                    typingIndicator.style.display = 'none';
+                }
             });
         } else {
             typingIndicator.style.display = 'none';
@@ -395,44 +402,33 @@ logoutBtn.addEventListener('click', async () => {
 });
 
 // Mesaj gönderme
-messageForm.addEventListener('submit', async (e) => {
+messageForm.onsubmit = async (e) => {
     e.preventDefault();
-    const message = messageInput.value.trim();
+    if (!currentChat || !messageInput.value.trim()) return;
     
-    if (message && currentChat) {
-        try {
-            const chatRef = ref(database, `${currentChatType}s/${currentChat}/messages`);
-            const messageData = {
-                text: message,
-                senderId: currentUser.uid,
-                senderName: (await get(ref(database, `users/${currentUser.uid}/name`))).val(),
-                timestamp: serverTimestamp()
-            };
-
-            await push(chatRef, messageData);
-            
-            // Okunmamış mesajları güncelle
-            const chatMembersRef = ref(database, `${currentChatType}s/${currentChat}/members`);
-            const membersSnapshot = await get(chatMembersRef);
-            const members = membersSnapshot.val() || {};
-            
-            Object.keys(members).forEach(memberId => {
-                if (memberId !== currentUser.uid) {
-                    const unreadRef = ref(database, `${currentChatType}s/${currentChat}/unread/${memberId}`);
-                    get(unreadRef).then(snapshot => {
-                        const current = snapshot.val() || 0;
-                        set(unreadRef, current + 1);
-                    });
-                }
-            });
-            
-            messageInput.value = '';
-        } catch (error) {
-            console.error("Mesaj gönderilirken hata oluştu:", error);
-            alert("Mesaj gönderilemedi. Lütfen tekrar deneyin.");
-        }
+    const text = messageInput.value.trim();
+    messageInput.value = '';
+    autoResizeTextarea();
+    
+    try {
+        const messageRef = ref(database, `messages/${currentChatType}/${currentChat}`);
+        await push(messageRef, {
+            text,
+            senderId: currentUser.uid,
+            senderName: currentUser.displayName || currentUser.email,
+            timestamp: serverTimestamp(),
+            status: 'sent'
+        });
+        
+        // Yazıyor durumunu temizle
+        const typingRef = ref(database, `${currentChatType}/${currentChat}/typing/${currentUser.uid}`);
+        await set(typingRef, false);
+        
+    } catch (error) {
+        console.error('Mesaj gönderme hatası:', error);
+        alert('Mesaj gönderilemedi. Lütfen tekrar deneyin.');
     }
-});
+};
 
 // Kullanıcıları yükleme fonksiyonunu güncelle
 async function loadUsers() {
@@ -546,7 +542,7 @@ function startPrivateChat(userId, userName) {
     currentChat = [currentUser.uid, userId].sort().join('-');
     currentChatType = 'private';
     chatHeader.textContent = `Sohbet: ${userName}`;
-    loadMessages();
+    loadMessages(currentChat, currentChatType);
 }
 
 // Grup sohbetini aç
@@ -554,25 +550,70 @@ function openGroupChat(groupId, groupName) {
     currentChat = groupId;
     currentChatType = 'group';
     chatHeader.textContent = `Grup: ${groupName}`;
-    loadMessages();
+    loadMessages(currentChat, currentChatType);
 }
 
 // Mesajları yükle
-function loadMessages() {
-    if (!currentChat) return;
-
-    const messagesRef = ref(database, `${currentChatType}s/${currentChat}/messages`);
+function loadMessages(chatId, type) {
+    messagesDiv.innerHTML = '';
+    const messagesRef = ref(database, `messages/${type}/${chatId}`);
+    
     onValue(messagesRef, (snapshot) => {
-        messagesDiv.innerHTML = '';
-        snapshot.forEach((childSnapshot) => {
-            const message = childSnapshot.val();
-            const messageElement = document.createElement('div');
-            messageElement.className = `message ${message.senderId === currentUser.uid ? 'own' : ''}`;
-            messageElement.textContent = `${message.senderName}: ${message.text}`;
+        const messages = snapshot.val();
+        if (!messages) return;
+        
+        // Mesajları tarihe göre sırala
+        const sortedMessages = Object.entries(messages)
+            .sort(([,a], [,b]) => (a.timestamp || 0) - (b.timestamp || 0));
+        
+        sortedMessages.forEach(([id, message]) => {
+            const messageElement = createMessageElement(message);
             messagesDiv.appendChild(messageElement);
         });
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        
+        scrollToBottom();
+        
+        // Okunmamış mesajları sıfırla
+        if (type === 'users') {
+            updateUnreadCount(chatId, 'user');
+        } else {
+            updateUnreadCount(chatId, 'group');
+        }
     });
+
+    // Yazıyor... durumunu dinle
+    listenToTyping(chatId, type);
+}
+
+// Mesaj elementi oluştur
+function createMessageElement(message) {
+    const div = document.createElement('div');
+    div.className = `message ${message.senderId === currentUser.uid ? 'outgoing' : 'incoming'}`;
+    
+    const text = document.createElement('div');
+    text.className = 'message-text';
+    text.textContent = message.text;
+    
+    const meta = document.createElement('div');
+    meta.className = 'message-meta';
+    
+    const time = document.createElement('span');
+    time.className = 'message-time';
+    time.textContent = formatTime(message.timestamp);
+    
+    const status = document.createElement('span');
+    status.className = 'message-status';
+    if (message.senderId === currentUser.uid) {
+        status.innerHTML = '<i class="fas fa-check"></i>';
+    }
+    
+    meta.appendChild(time);
+    meta.appendChild(status);
+    
+    div.appendChild(text);
+    div.appendChild(meta);
+    
+    return div;
 }
 
 // Kullanıcı bilgilerini yükle
@@ -932,61 +973,6 @@ function openChat(chatId, type, name) {
         sidebar.classList.remove('active');
     }
 }
-
-// Mesajları yükle
-function loadMessages(chatId, type) {
-    messagesDiv.innerHTML = '';
-    const messagesRef = ref(database, `messages/${type}/${chatId}`);
-    
-    onValue(messagesRef, (snapshot) => {
-        const messages = snapshot.val();
-        if (!messages) return;
-        
-        Object.entries(messages).forEach(([id, message]) => {
-            const messageElement = createMessageElement(message);
-            messagesDiv.appendChild(messageElement);
-        });
-        
-        scrollToBottom();
-    });
-}
-
-// Mesaj elementi oluştur
-function createMessageElement(message) {
-    const div = document.createElement('div');
-    div.className = `message ${message.senderId === currentUser.uid ? 'outgoing' : 'incoming'}`;
-    
-    const text = document.createElement('div');
-    text.className = 'message-text';
-    text.textContent = message.text;
-    
-    const meta = document.createElement('div');
-    meta.className = 'message-meta';
-    meta.textContent = formatTime(message.timestamp);
-    
-    div.appendChild(text);
-    div.appendChild(meta);
-    
-    return div;
-}
-
-// Mesaj gönder
-messageForm.onsubmit = async (e) => {
-    e.preventDefault();
-    if (!currentChat || !messageInput.value.trim()) return;
-    
-    const text = messageInput.value.trim();
-    messageInput.value = '';
-    autoResizeTextarea();
-    
-    const messageRef = ref(database, `messages/${currentChatType}/${currentChat}`);
-    await push(messageRef, {
-        text,
-        senderId: currentUser.uid,
-        senderName: currentUser.displayName || currentUser.email,
-        timestamp: serverTimestamp()
-    });
-};
 
 // Yardımcı fonksiyonlar
 function formatTime(timestamp) {
