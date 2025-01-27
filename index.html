@@ -601,67 +601,44 @@
 </head>
 <body>
     <!-- Giriş/Kayıt Formu -->
-    <div id="authContainer" class="auth-container">
-        <div id="loginForm">
+    <div class="auth-container" id="authContainer">
+        <form id="loginForm" class="auth-form">
             <h2>Giriş Yap</h2>
-            <form id="login">
-                <div class="form-group">
-                    <label for="loginEmail">E-posta</label>
-                    <input type="email" id="loginEmail" required>
-                    <div class="error-message" id="loginEmailError"></div>
-                </div>
-                <div class="form-group">
-                    <label for="loginPassword">Şifre</label>
-                    <div class="password-input-wrapper">
-                        <input type="password" id="loginPassword" required>
-                        <button type="button" class="toggle-password" tabindex="-1">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                    </div>
-                    <div class="error-message" id="loginPasswordError"></div>
-                </div>
-                <div class="form-group checkbox-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="rememberMe">
-                        <span>Beni Hatırla</span>
-                    </label>
-                </div>
-                <button type="submit">Giriş Yap</button>
-            </form>
-            <div class="auth-toggle">
-                Hesabınız yok mu? <span id="showRegister">Kayıt Olun</span>
+            <div class="form-group">
+                <label for="loginEmail">Email</label>
+                <input type="email" id="loginEmail" required>
             </div>
-        </div>
+            <div class="form-group">
+                <label for="loginPassword">Şifre</label>
+                <input type="password" id="loginPassword" required>
+            </div>
+            <div class="error" id="loginError"></div>
+            <button type="submit" class="auth-btn">Giriş Yap</button>
+            <p class="auth-link">
+                Hesabınız yok mu? <a href="#" id="showRegister">Kayıt Ol</a>
+            </p>
+        </form>
 
-        <div id="registerForm" style="display: none;">
+        <form id="registerForm" class="auth-form" style="display: none;">
             <h2>Kayıt Ol</h2>
-            <form id="register">
-                <div class="form-group">
-                    <label for="registerName">Ad Soyad</label>
-                    <input type="text" id="registerName" required>
-                    <div class="error-message" id="registerNameError"></div>
-                </div>
-                <div class="form-group">
-                    <label for="registerEmail">E-posta</label>
-                    <input type="email" id="registerEmail" required>
-                    <div class="error-message" id="registerEmailError"></div>
-                </div>
-                <div class="form-group">
-                    <label for="registerPassword">Şifre</label>
-                    <div class="password-input-wrapper">
-                        <input type="password" id="registerPassword" required>
-                        <button type="button" class="toggle-password" tabindex="-1">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                    </div>
-                    <div class="error-message" id="registerPasswordError"></div>
-                </div>
-                <button type="submit">Kayıt Ol</button>
-            </form>
-            <div class="auth-toggle">
-                Zaten hesabınız var mı? <span id="showLogin">Giriş Yapın</span>
+            <div class="form-group">
+                <label for="registerEmail">Email</label>
+                <input type="email" id="registerEmail" required>
             </div>
-        </div>
+            <div class="form-group">
+                <label for="registerPassword">Şifre</label>
+                <input type="password" id="registerPassword" required>
+            </div>
+            <div class="form-group">
+                <label for="confirmPassword">Şifreyi Tekrarla</label>
+                <input type="password" id="confirmPassword" required>
+            </div>
+            <div class="error" id="registerError"></div>
+            <button type="submit" class="auth-btn">Kayıt Ol</button>
+            <p class="auth-link">
+                Zaten hesabınız var mı? <a href="#" id="showLogin">Giriş Yap</a>
+            </p>
+        </form>
     </div>
 
     <!-- Ana uygulama -->

@@ -246,143 +246,114 @@ onAuthStateChanged(auth, async (user) => {
     }
 });
 
-// Kayıt ol
-registerForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    clearErrors();
-    
-    const email = document.getElementById('registerEmail').value;
-    const password = document.getElementById('registerPassword').value;
-    const name = document.getElementById('registerName').value;
-
-    if (name.length < 3) {
-        showError('registerNameError', 'İsim en az 3 karakter olmalıdır');
-        return;
-    }
-
-    if (password.length < 6) {
-        showError('registerPasswordError', 'Şifre en az 6 karakter olmalıdır');
-        return;
-    }
-
-    try {
-        // Önce Authentication'da kullanıcı oluştur
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
+// Auth işlemleri için event listener'ları ekle
+document.addEventListener('DOMContentLoaded', () => {
+    // Login form işlemi
+    loginForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('loginEmail').value;
+        const password = document.getElementById('loginPassword').value;
+        const errorDiv = document.getElementById('loginError');
         
         try {
-            // Sonra veritabanına kullanıcı bilgilerini kaydet
-            await set(ref(database, 'users/' + user.uid), {
-                name: name,
-                email: email,
-                createdAt: Date.now(),
-                status: 'offline',
-                lastOnline: Date.now()
-            });
-
-            // E-posta doğrulama gönder
-            await sendEmailVerification(user);
-            
-            alert('Kayıt başarılı! Lütfen e-posta adresinizi doğrulayın.');
-            
-            // Kullanıcıyı çıkış yaptır
-            await signOut(auth);
-            
-            // Login formunu göster
-            document.getElementById('registerForm').style.display = 'none';
-            document.getElementById('loginForm').style.display = 'block';
-        } catch (dbError) {
-            // Veritabanı hatası durumunda kullanıcıyı sil
-            await user.delete();
-            throw dbError;
-        }
-    } catch (error) {
-        console.error("Kayıt hatası:", error);
-        switch (error.code) {
-            case 'auth/email-already-in-use':
-                showError('registerEmailError', 'Bu e-posta adresi zaten kullanımda');
-                break;
-            case 'auth/invalid-email':
-                showError('registerEmailError', 'Geçersiz e-posta adresi');
-                break;
-            case 'auth/weak-password':
-                showError('registerPasswordError', 'Şifre çok zayıf');
-                break;
-            case 'auth/operation-not-allowed':
-                showError('registerEmailError', 'E-posta/şifre girişi etkin değil');
-                break;
-            default:
-                showError('registerEmailError', `Kayıt hatası: ${error.message}`);
-        }
-    }
-});
-
-// Giriş yap
-loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    clearErrors();
-    
-    const email = document.getElementById('loginEmail').value;
-    const password = document.getElementById('loginPassword').value;
-    const rememberMe = document.getElementById('rememberMe').checked;
-    const submitButton = loginForm.querySelector('button[type="submit"]');
-
-    try {
-        submitButton.disabled = true;
-        submitButton.textContent = 'Giriş yapılıyor...';
-
-        // Persistence türünü belirle
-        const persistenceType = rememberMe ? browserLocalPersistence : browserSessionPersistence;
-        
-        // Persistence ayarını güncelle
-        await setPersistence(auth, persistenceType);
-        
-        // Giriş işlemi
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
-
-        if (!user.emailVerified) {
-            submitButton.disabled = false;
-            submitButton.textContent = 'Giriş Yap';
-            throw new Error('email-not-verified');
-        }
-
-        // Kullanıcı durumunu güncelle
-        await set(ref(database, `users/${user.uid}/status`), 'online');
-        
-        // Beni hatırla seçeneğini localStorage'a kaydet
-        localStorage.setItem('rememberMe', rememberMe);
-
-        // Ana sayfaya yönlendir
-        showMainApp();
-        
-    } catch (error) {
-        console.error('Giriş hatası:', error);
-        submitButton.disabled = false;
-        submitButton.textContent = 'Giriş Yap';
-
-        if (error.code === 'auth/network-request-failed') {
-            showError('loginEmailError', 'İnternet bağlantınızı kontrol edin');
-        } else if (error.message === 'email-not-verified') {
-            showError('loginEmailError', 'Lütfen önce e-posta adresinizi doğrulayın');
-        } else {
+            errorDiv.textContent = '';
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            if (!userCredential.user.emailVerified) {
+                await sendEmailVerification(userCredential.user);
+                errorDiv.textContent = 'Lütfen email adresinizi doğrulayın. Doğrulama maili gönderildi.';
+                await signOut(auth);
+                return;
+            }
+            window.location.href = 'anasayfa.html';
+        } catch (error) {
+            console.error('Giriş hatası:', error);
             switch (error.code) {
                 case 'auth/user-not-found':
-                    showError('loginEmailError', 'Kullanıcı bulunamadı');
+                    errorDiv.textContent = 'Kullanıcı bulunamadı';
                     break;
                 case 'auth/wrong-password':
-                    showError('loginPasswordError', 'Hatalı şifre');
+                    errorDiv.textContent = 'Hatalı şifre';
                     break;
                 case 'auth/invalid-email':
-                    showError('loginEmailError', 'Geçersiz e-posta adresi');
-                    break;
-                case 'auth/too-many-requests':
-                    showError('loginEmailError', 'Çok fazla başarısız deneme. Lütfen daha sonra tekrar deneyin');
+                    errorDiv.textContent = 'Geçersiz email adresi';
                     break;
                 default:
-                    showError('loginEmailError', 'Giriş yapılamadı. Lütfen tekrar deneyin.');
+                    errorDiv.textContent = 'Giriş yapılırken bir hata oluştu';
             }
+        }
+    });
+
+    // Register form işlemi
+    registerForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('registerEmail').value;
+        const password = document.getElementById('registerPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        const errorDiv = document.getElementById('registerError');
+
+        if (password !== confirmPassword) {
+            errorDiv.textContent = 'Şifreler eşleşmiyor';
+            return;
+        }
+
+        try {
+            errorDiv.textContent = '';
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            await sendEmailVerification(userCredential.user);
+            
+            // Kullanıcı bilgilerini veritabanına kaydet
+            const userRef = ref(database, `users/${userCredential.user.uid}`);
+            await set(userRef, {
+                email: email,
+                createdAt: serverTimestamp(),
+                status: 'offline',
+                displayName: email.split('@')[0],
+                photoURL: null
+            });
+
+            alert('Kayıt başarılı! Lütfen email adresinizi doğrulayın.');
+            document.getElementById('showLogin').click();
+        } catch (error) {
+            console.error('Kayıt hatası:', error);
+            switch (error.code) {
+                case 'auth/email-already-in-use':
+                    errorDiv.textContent = 'Bu email adresi zaten kullanımda';
+                    break;
+                case 'auth/invalid-email':
+                    errorDiv.textContent = 'Geçersiz email adresi';
+                    break;
+                case 'auth/weak-password':
+                    errorDiv.textContent = 'Şifre en az 6 karakter olmalıdır';
+                    break;
+                default:
+                    errorDiv.textContent = 'Kayıt olurken bir hata oluştu';
+            }
+        }
+    });
+
+    // Form geçişleri için event listener'lar
+    document.getElementById('showRegister')?.addEventListener('click', () => {
+        document.getElementById('loginForm').style.display = 'none';
+        document.getElementById('registerForm').style.display = 'block';
+    });
+
+    document.getElementById('showLogin')?.addEventListener('click', () => {
+        document.getElementById('registerForm').style.display = 'none';
+        document.getElementById('loginForm').style.display = 'block';
+    });
+});
+
+// Auth durumu değişikliğini dinle
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        if (window.location.pathname.includes('index.html')) {
+            if (user.emailVerified) {
+                window.location.href = 'anasayfa.html';
+            }
+        }
+    } else {
+        if (!window.location.pathname.includes('index.html')) {
+            window.location.href = 'index.html';
         }
     }
 });
@@ -633,345 +604,6 @@ function showMainApp() {
 function showAuthContainer() {
     authContainer.style.display = 'block';
     mainContainer.style.display = 'none';
-}
-
-// Giriş/Kayıt form geçişleri
-document.getElementById('showRegister').onclick = () => {
-    document.getElementById('loginForm').style.display = 'none';
-    document.getElementById('registerForm').style.display = 'block';
-};
-
-document.getElementById('showLogin').onclick = () => {
-    document.getElementById('registerForm').style.display = 'none';
-    document.getElementById('loginForm').style.display = 'block';
-};
-
-// Hata gösterme fonksiyonu
-function showError(elementId, message) {
-    const errorElement = document.getElementById(elementId);
-    errorElement.textContent = message;
-    errorElement.style.display = 'block';
-}
-
-// Hataları temizleme fonksiyonu
-function clearErrors() {
-    const errorElements = document.getElementsByClassName('error-message');
-    for (let element of errorElements) {
-        element.style.display = 'none';
-        element.textContent = '';
-    }
-}
-
-// Şifre göster/gizle ve beni hatırla fonksiyonlarını ekleyelim
-document.addEventListener('DOMContentLoaded', () => {
-    // Şifre göster/gizle butonları için event listener
-    const toggleButtons = document.querySelectorAll('.toggle-password');
-    toggleButtons.forEach(button => {
-        button.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            const passwordInput = this.parentElement.querySelector('input');
-            const icon = this.querySelector('i');
-            
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                icon.classList.remove('fa-eye');
-                icon.classList.add('fa-eye-slash');
-            } else {
-                passwordInput.type = 'password';
-                icon.classList.remove('fa-eye-slash');
-                icon.classList.add('fa-eye');
-            }
-        });
-    });
-
-    // Beni hatırla durumunu kontrol et ve ayarla
-    const rememberMeCheckbox = document.getElementById('rememberMe');
-    const savedRememberMe = localStorage.getItem('rememberMe') === 'true';
-    rememberMeCheckbox.checked = savedRememberMe;
-
-    // Beni hatırla değiştiğinde localStorage'ı güncelle
-    rememberMeCheckbox.addEventListener('change', (e) => {
-        localStorage.setItem('rememberMe', e.target.checked);
-    });
-});
-
-// Kullanıcının grup kontrolü
-async function checkUserGroup() {
-    const userGroupRef = ref(database, `users/${currentUser.uid}/ownedGroup`);
-    const snapshot = await get(userGroupRef);
-    userOwnedGroup = snapshot.val();
-    
-    // Grup oluştur butonunu güncelle
-    updateCreateGroupButton();
-}
-
-// Grup oluştur butonunu güncelle
-function updateCreateGroupButton() {
-    const createGroupBtn = document.getElementById('createGroupBtn');
-    if (userOwnedGroup) {
-        createGroupBtn.innerHTML = '<i class="fas fa-users"></i> Grubumu Yönet';
-        createGroupBtn.onclick = () => openGroupManagement(userOwnedGroup);
-    } else {
-        createGroupBtn.innerHTML = '<i class="fas fa-users"></i> Yeni Grup';
-        createGroupBtn.onclick = createNewGroup;
-    }
-}
-
-// Yeni grup oluştur
-async function createNewGroup() {
-    if (userOwnedGroup) {
-        alert('Zaten bir grubunuz var!');
-        return;
-    }
-
-    const groupName = prompt('Grup adını girin:');
-    if (!groupName) return;
-
-    try {
-        // Yeni grup oluştur
-        const groupsRef = ref(database, 'groups');
-        const newGroupRef = push(groupsRef);
-        const groupId = newGroupRef.key;
-        
-        const groupData = {
-            name: groupName,
-            owner: currentUser.uid,
-            createdAt: serverTimestamp(),
-            members: {
-                [currentUser.uid]: {
-                    role: 'owner',
-                    joinedAt: serverTimestamp()
-                }
-            }
-        };
-
-        await set(newGroupRef, groupData);
-        
-        // Kullanıcının grup bilgisini güncelle
-        await set(ref(database, `users/${currentUser.uid}/ownedGroup`), groupId);
-        
-        userOwnedGroup = groupId;
-        updateCreateGroupButton();
-        loadGroups();
-        
-    } catch (error) {
-        console.error('Grup oluşturma hatası:', error);
-        alert('Grup oluşturulurken bir hata oluştu.');
-    }
-}
-
-// Grup yönetimi penceresini aç
-function openGroupManagement(groupId) {
-    // Mevcut sohbet alanını grup yönetimi arayüzüne dönüştür
-    const chatContainer = document.querySelector('.chat-container');
-    const groupRef = ref(database, `groups/${groupId}`);
-    
-    get(groupRef).then((snapshot) => {
-        const groupData = snapshot.val();
-        
-        chatContainer.innerHTML = `
-            <div class="group-management">
-                <div class="group-header">
-                    <h2>${groupData.name}</h2>
-                    <div class="group-actions">
-                        <button class="edit-group-name">
-                            <i class="fas fa-edit"></i> İsmi Değiştir
-                        </button>
-                        <button class="delete-group" style="color: #dc3545">
-                            <i class="fas fa-trash"></i> Grubu Sil
-                        </button>
-                    </div>
-                </div>
-                <div class="group-stats">
-                    <div>Üye Sayısı: <span id="memberCount">0</span></div>
-                    <div>Oluşturulma: <span id="creationDate"></span></div>
-                </div>
-                <div class="group-members">
-                    <h3>Üyeler</h3>
-                    <div id="membersList"></div>
-                </div>
-            </div>
-        `;
-
-        // Event listener'ları ekle
-        document.querySelector('.edit-group-name').onclick = () => editGroupName(groupId);
-        document.querySelector('.delete-group').onclick = () => deleteGroup(groupId);
-        
-        // Üyeleri listele
-        loadGroupMembers(groupId);
-    });
-}
-
-// Grup ismini düzenle
-async function editGroupName(groupId) {
-    const newName = prompt('Yeni grup adını girin:');
-    if (!newName) return;
-
-    try {
-        await update(ref(database, `groups/${groupId}`), {
-            name: newName
-        });
-        loadGroups();
-    } catch (error) {
-        console.error('İsim değiştirme hatası:', error);
-        alert('İsim değiştirilirken bir hata oluştu.');
-    }
-}
-
-// Grubu sil
-async function deleteGroup(groupId) {
-    if (!confirm('Grubu silmek istediğinizden emin misiniz?')) return;
-
-    try {
-        await set(ref(database, `groups/${groupId}`), null);
-        await set(ref(database, `users/${currentUser.uid}/ownedGroup`), null);
-        
-        userOwnedGroup = null;
-        updateCreateGroupButton();
-        loadGroups();
-        
-        // Ana sohbet görünümüne dön
-        document.querySelector('.chat-container').innerHTML = `
-            <div id="chatHeader">
-                <div class="chat-avatar"></div>
-                <div class="chat-info">
-                    <h2 class="chat-name">Sohbet seçin</h2>
-                    <div class="chat-status"></div>
-                </div>
-            </div>
-            <div class="messages" id="messages"></div>
-            <div class="typing-indicator" id="typingIndicator" style="display: none;">
-                Birisi yazıyor...
-            </div>
-            <form class="message-form" id="messageForm">
-                <button type="button" id="emojiBtn">
-                    <i class="far fa-smile"></i>
-                </button>
-                <input type="text" id="messageInput" placeholder="Mesajınızı yazın..." required>
-                <button type="submit">
-                    <i class="fas fa-paper-plane"></i>
-                </button>
-            </form>
-        `;
-    } catch (error) {
-        console.error('Grup silme hatası:', error);
-        alert('Grup silinirken bir hata oluştu.');
-    }
-}
-
-// Sohbetleri yükle
-function loadChats() {
-    const usersRef = ref(database, 'users');
-    const groupsRef = ref(database, 'groups');
-
-    // Kullanıcıları yükle
-    onValue(usersRef, (snapshot) => {
-        const users = snapshot.val();
-        updateChatList(users, 'users');
-    });
-
-    // Grupları yükle
-    onValue(groupsRef, (snapshot) => {
-        const groups = snapshot.val();
-        updateChatList(groups, 'groups');
-    });
-}
-
-// Sohbet listesini güncelle
-function updateChatList(items, type) {
-    Object.entries(items).forEach(([id, data]) => {
-        if (id === currentUser.uid) return; // Kendini listeden çıkar
-        
-        const existingChat = document.getElementById(`chat-${type}-${id}`);
-        if (existingChat) {
-            updateChatItem(existingChat, data, type, id);
-        } else {
-            createChatItem(data, type, id);
-        }
-    });
-}
-
-// Sohbet öğesi oluştur
-function createChatItem(data, type, id) {
-    const chatItem = document.createElement('div');
-    chatItem.className = 'chat-item';
-    chatItem.id = `chat-${type}-${id}`;
-    
-    const avatar = document.createElement('div');
-    avatar.className = 'chat-avatar';
-    avatar.textContent = data.name ? data.name.charAt(0).toUpperCase() : '?';
-
-    const info = document.createElement('div');
-    info.className = 'chat-info';
-    
-    const header = document.createElement('div');
-    header.className = 'chat-header';
-    
-    const name = document.createElement('div');
-    name.className = 'chat-name';
-    name.textContent = data.name;
-    
-    const time = document.createElement('div');
-    time.className = 'chat-time';
-    
-    const message = document.createElement('div');
-    message.className = 'chat-message';
-    
-    header.appendChild(name);
-    header.appendChild(time);
-    info.appendChild(header);
-    info.appendChild(message);
-    
-    chatItem.appendChild(avatar);
-    chatItem.appendChild(info);
-    
-    // Son mesajı ve zamanı güncelle
-    updateLastMessage(id, type, message, time);
-    
-    // Tıklama olayı
-    chatItem.onclick = () => {
-        document.querySelectorAll('.chat-item').forEach(item => item.classList.remove('active'));
-        chatItem.classList.add('active');
-        openChat(id, type, data.name);
-    };
-    
-    chatList.appendChild(chatItem);
-}
-
-// Son mesajı güncelle
-function updateLastMessage(chatId, type, messageElement, timeElement) {
-    const messagesRef = ref(database, `messages/${type}/${chatId}`);
-    const lastMessageQuery = query(messagesRef, orderByChild('timestamp'), limitToLast(1));
-    
-    onValue(lastMessageQuery, (snapshot) => {
-        const messages = snapshot.val();
-        if (messages) {
-            const lastMessage = Object.values(messages)[0];
-            messageElement.textContent = lastMessage.text;
-            timeElement.textContent = formatTime(lastMessage.timestamp);
-        }
-    });
-}
-
-// Sohbeti aç
-function openChat(chatId, type, name) {
-    currentChat = chatId;
-    currentChatType = type;
-    
-    // Header'ı güncelle
-    document.querySelector('.chat-name').textContent = name;
-    document.querySelector('.chat-status').textContent = 
-        type === 'users' ? 'Çevrimiçi' : `${type === 'groups' ? 'Grup' : 'Kanal'}`;
-    
-    // Mesajları yükle
-    loadMessages(chatId, type);
-    
-    // Mobilde sidebar'ı kapat
-    if (window.innerWidth <= 768) {
-        sidebar.classList.remove('active');
-    }
 }
 
 // Yardımcı fonksiyonlar
