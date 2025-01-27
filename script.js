@@ -195,29 +195,36 @@ registerForm.addEventListener('submit', async (e) => {
     }
 
     try {
+        // Önce Authentication'da kullanıcı oluştur
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
         
-        // Kullanıcı veritabanı kaydını güncelle
-        const userRef = ref(database, `users/${user.uid}`);
-        await set(userRef, {
-            name: name,
-            email: email,
-            createdAt: serverTimestamp(),
-            status: 'offline',
-            lastOnline: serverTimestamp()
-        });
+        try {
+            // Sonra veritabanına kullanıcı bilgilerini kaydet
+            await set(ref(database, 'users/' + user.uid), {
+                name: name,
+                email: email,
+                createdAt: Date.now(),
+                status: 'offline',
+                lastOnline: Date.now()
+            });
 
-        await sendEmailVerification(user);
-        
-        alert('Kayıt başarılı! Lütfen e-posta adresinizi doğrulayın.');
-        
-        // Kullanıcıyı otomatik olarak çıkış yaptır
-        await auth.signOut();
-        
-        // Login formunu göster
-        document.getElementById('registerForm').style.display = 'none';
-        document.getElementById('loginForm').style.display = 'block';
+            // E-posta doğrulama gönder
+            await sendEmailVerification(user);
+            
+            alert('Kayıt başarılı! Lütfen e-posta adresinizi doğrulayın.');
+            
+            // Kullanıcıyı çıkış yaptır
+            await signOut(auth);
+            
+            // Login formunu göster
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('loginForm').style.display = 'block';
+        } catch (dbError) {
+            // Veritabanı hatası durumunda kullanıcıyı sil
+            await user.delete();
+            throw dbError;
+        }
     } catch (error) {
         console.error("Kayıt hatası:", error);
         switch (error.code) {
