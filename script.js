@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
-import { getDatabase, ref, push, onValue, set, get, update, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-database.js";
+import { getDatabase, ref, push, onValue, set, get, update, serverTimestamp, query, orderByChild, limitToLast } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-database.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification, onAuthStateChanged, setPersistence, browserLocalPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-storage.js";
 
@@ -17,7 +17,7 @@ const firebaseConfig = {
 
 // Firebase'i başlat
 const app = initializeApp(firebaseConfig);
-const auth = getAuth();
+const auth = getAuth(app);
 auth.useDeviceLanguage(); // Tarayıcı dilini kullan
 
 // Persistence ayarını güncelle
@@ -51,6 +51,8 @@ const mobileMenuBtn = document.getElementById('mobileMenuBtn');
 const sidebar = document.getElementById('sidebar');
 const typingIndicator = document.getElementById('typingIndicator');
 const emojiBtn = document.getElementById('emojiBtn');
+const chatList = document.getElementById('chatList');
+const menuBtn = document.querySelector('.menu-btn');
 
 let currentUser = null;
 let currentChat = null;
@@ -59,6 +61,7 @@ let typingTimeout = null;
 let lastTypingUpdate = 0;
 let unreadMessages = {};
 let userOwnedGroup = null;
+let lastMessageTime = {};
 
 // Mobil menü toggle
 mobileMenuBtn?.addEventListener('click', () => {
@@ -225,6 +228,7 @@ onAuthStateChanged(auth, async (user) => {
             loadUsers();
             loadGroups();
             checkUserGroup();
+            loadChats();
         } catch (error) {
             console.error('Kullanıcı durumu güncellenirken hata:', error);
         }
@@ -814,4 +818,232 @@ async function deleteGroup(groupId) {
         console.error('Grup silme hatası:', error);
         alert('Grup silinirken bir hata oluştu.');
     }
+}
+
+// Sohbetleri yükle
+function loadChats() {
+    const usersRef = ref(database, 'users');
+    const groupsRef = ref(database, 'groups');
+
+    // Kullanıcıları yükle
+    onValue(usersRef, (snapshot) => {
+        const users = snapshot.val();
+        updateChatList(users, 'users');
+    });
+
+    // Grupları yükle
+    onValue(groupsRef, (snapshot) => {
+        const groups = snapshot.val();
+        updateChatList(groups, 'groups');
+    });
+}
+
+// Sohbet listesini güncelle
+function updateChatList(items, type) {
+    Object.entries(items).forEach(([id, data]) => {
+        if (id === currentUser.uid) return; // Kendini listeden çıkar
+        
+        const existingChat = document.getElementById(`chat-${type}-${id}`);
+        if (existingChat) {
+            updateChatItem(existingChat, data, type, id);
+        } else {
+            createChatItem(data, type, id);
+        }
+    });
+}
+
+// Sohbet öğesi oluştur
+function createChatItem(data, type, id) {
+    const chatItem = document.createElement('div');
+    chatItem.className = 'chat-item';
+    chatItem.id = `chat-${type}-${id}`;
+    
+    const avatar = document.createElement('div');
+    avatar.className = 'chat-avatar';
+    avatar.textContent = data.name ? data.name.charAt(0).toUpperCase() : '?';
+
+    const info = document.createElement('div');
+    info.className = 'chat-info';
+    
+    const header = document.createElement('div');
+    header.className = 'chat-header';
+    
+    const name = document.createElement('div');
+    name.className = 'chat-name';
+    name.textContent = data.name;
+    
+    const time = document.createElement('div');
+    time.className = 'chat-time';
+    
+    const message = document.createElement('div');
+    message.className = 'chat-message';
+    
+    header.appendChild(name);
+    header.appendChild(time);
+    info.appendChild(header);
+    info.appendChild(message);
+    
+    chatItem.appendChild(avatar);
+    chatItem.appendChild(info);
+    
+    // Son mesajı ve zamanı güncelle
+    updateLastMessage(id, type, message, time);
+    
+    // Tıklama olayı
+    chatItem.onclick = () => {
+        document.querySelectorAll('.chat-item').forEach(item => item.classList.remove('active'));
+        chatItem.classList.add('active');
+        openChat(id, type, data.name);
+    };
+    
+    chatList.appendChild(chatItem);
+}
+
+// Son mesajı güncelle
+function updateLastMessage(chatId, type, messageElement, timeElement) {
+    const messagesRef = ref(database, `messages/${type}/${chatId}`);
+    const lastMessageQuery = query(messagesRef, orderByChild('timestamp'), limitToLast(1));
+    
+    onValue(lastMessageQuery, (snapshot) => {
+        const messages = snapshot.val();
+        if (messages) {
+            const lastMessage = Object.values(messages)[0];
+            messageElement.textContent = lastMessage.text;
+            timeElement.textContent = formatTime(lastMessage.timestamp);
+        }
+    });
+}
+
+// Sohbeti aç
+function openChat(chatId, type, name) {
+    currentChat = chatId;
+    currentChatType = type;
+    
+    // Header'ı güncelle
+    document.querySelector('.chat-name').textContent = name;
+    document.querySelector('.chat-status').textContent = 
+        type === 'users' ? 'Çevrimiçi' : `${type === 'groups' ? 'Grup' : 'Kanal'}`;
+    
+    // Mesajları yükle
+    loadMessages(chatId, type);
+    
+    // Mobilde sidebar'ı kapat
+    if (window.innerWidth <= 768) {
+        sidebar.classList.remove('active');
+    }
+}
+
+// Mesajları yükle
+function loadMessages(chatId, type) {
+    messagesDiv.innerHTML = '';
+    const messagesRef = ref(database, `messages/${type}/${chatId}`);
+    
+    onValue(messagesRef, (snapshot) => {
+        const messages = snapshot.val();
+        if (!messages) return;
+        
+        Object.entries(messages).forEach(([id, message]) => {
+            const messageElement = createMessageElement(message);
+            messagesDiv.appendChild(messageElement);
+        });
+        
+        scrollToBottom();
+    });
+}
+
+// Mesaj elementi oluştur
+function createMessageElement(message) {
+    const div = document.createElement('div');
+    div.className = `message ${message.senderId === currentUser.uid ? 'outgoing' : 'incoming'}`;
+    
+    const text = document.createElement('div');
+    text.className = 'message-text';
+    text.textContent = message.text;
+    
+    const meta = document.createElement('div');
+    meta.className = 'message-meta';
+    meta.textContent = formatTime(message.timestamp);
+    
+    div.appendChild(text);
+    div.appendChild(meta);
+    
+    return div;
+}
+
+// Mesaj gönder
+messageForm.onsubmit = async (e) => {
+    e.preventDefault();
+    if (!currentChat || !messageInput.value.trim()) return;
+    
+    const text = messageInput.value.trim();
+    messageInput.value = '';
+    autoResizeTextarea();
+    
+    const messageRef = ref(database, `messages/${currentChatType}/${currentChat}`);
+    await push(messageRef, {
+        text,
+        senderId: currentUser.uid,
+        senderName: currentUser.displayName || currentUser.email,
+        timestamp: serverTimestamp()
+    });
+};
+
+// Yardımcı fonksiyonlar
+function formatTime(timestamp) {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function autoResizeTextarea() {
+    messageInput.style.height = 'auto';
+    messageInput.style.height = messageInput.scrollHeight + 'px';
+}
+
+function scrollToBottom() {
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+// Arama fonksiyonu
+searchInput.addEventListener('input', (e) => {
+    const searchTerm = e.target.value.toLowerCase();
+    const chatItems = document.querySelectorAll('.chat-item');
+    
+    chatItems.forEach(item => {
+        const name = item.querySelector('.chat-name').textContent.toLowerCase();
+        const message = item.querySelector('.chat-message').textContent.toLowerCase();
+        
+        if (name.includes(searchTerm) || message.includes(searchTerm)) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+});
+
+// Mobil menü
+menuBtn.onclick = () => {
+    sidebar.classList.toggle('active');
+};
+
+// Çıkış yap
+document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+    try {
+        await updateUserStatus(false);
+        await signOut(auth);
+        window.location.href = 'index.html';
+    } catch (error) {
+        console.error('Çıkış hatası:', error);
+    }
+});
+
+// Kullanıcı durumunu güncelle
+async function updateUserStatus(online) {
+    if (!currentUser) return;
+    
+    const userStatusRef = ref(database, `users/${currentUser.uid}`);
+    await update(userStatusRef, {
+        status: online ? 'online' : 'offline',
+        lastSeen: serverTimestamp()
+    });
 } 
