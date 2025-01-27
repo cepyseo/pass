@@ -297,11 +297,7 @@ loginForm.addEventListener('submit', async (e) => {
         await set(ref(database, `users/${user.uid}/status`), 'online');
         
         // Beni hatırla seçeneğini localStorage'a kaydet
-        if (rememberMe) {
-            localStorage.setItem('rememberMe', 'true');
-        } else {
-            localStorage.removeItem('rememberMe');
-        }
+        localStorage.setItem('rememberMe', rememberMe);
 
         // Ana sayfaya yönlendir
         showMainApp();
@@ -544,36 +540,37 @@ function clearErrors() {
     }
 }
 
-// Şifre göster/gizle fonksiyonları
-document.querySelectorAll('.toggle-password').forEach(button => {
-    button.addEventListener('click', function() {
-        const passwordInput = this.parentElement.querySelector('input');
-        const icon = this.querySelector('i');
-        
-        if (passwordInput.type === 'password') {
-            passwordInput.type = 'text';
-            icon.classList.remove('fa-eye');
-            icon.classList.add('fa-eye-slash');
-        } else {
-            passwordInput.type = 'password';
-            icon.classList.remove('fa-eye-slash');
-            icon.classList.add('fa-eye');
-        }
-    });
-});
-
-// Şifre alanlarına Enter tuşu desteği
-document.querySelectorAll('.password-input-wrapper input').forEach(input => {
-    input.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            this.closest('form').querySelector('button[type="submit"]').click();
-        }
-    });
-});
-
-// Sayfa yüklendiğinde beni hatırla durumunu kontrol et
+// Şifre göster/gizle ve beni hatırla fonksiyonlarını ekleyelim
 document.addEventListener('DOMContentLoaded', () => {
-    const rememberMe = localStorage.getItem('rememberMe') === 'true';
-    document.getElementById('rememberMe').checked = rememberMe;
+    // Şifre göster/gizle butonları için event listener
+    const toggleButtons = document.querySelectorAll('.toggle-password');
+    toggleButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const passwordInput = this.parentElement.querySelector('input');
+            const icon = this.querySelector('i');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        });
+    });
+
+    // Beni hatırla durumunu kontrol et ve ayarla
+    const rememberMeCheckbox = document.getElementById('rememberMe');
+    const savedRememberMe = localStorage.getItem('rememberMe') === 'true';
+    rememberMeCheckbox.checked = savedRememberMe;
+
+    // Beni hatırla değiştiğinde localStorage'ı güncelle
+    rememberMeCheckbox.addEventListener('change', (e) => {
+        localStorage.setItem('rememberMe', e.target.checked);
+    });
 }); 
