@@ -177,14 +177,31 @@ onAuthStateChanged(auth, (user) => {
 // Kayıt ol
 registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    
+    // Hata mesajlarını temizle
+    clearErrors();
+    
     const email = document.getElementById('registerEmail').value;
     const password = document.getElementById('registerPassword').value;
     const name = document.getElementById('registerName').value;
 
+    // Basit validasyon
+    if (name.length < 3) {
+        showError('registerNameError', 'İsim en az 3 karakter olmalıdır');
+        return;
+    }
+
+    if (password.length < 6) {
+        showError('registerPasswordError', 'Şifre en az 6 karakter olmalıdır');
+        return;
+    }
+
     try {
+        // Önce kullanıcıyı Firebase Auth'da oluştur
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
         
+        // Kullanıcı bilgilerini veritabanına kaydet
         await set(ref(database, `users/${user.uid}`), {
             name: name,
             email: email,
@@ -193,23 +210,71 @@ registerForm.addEventListener('submit', async (e) => {
             lastOnline: serverTimestamp()
         });
 
+        // E-posta doğrulama gönder
         await sendEmailVerification(user);
+        
+        // Başarılı kayıt mesajı
         alert('Kayıt başarılı! Lütfen e-posta adresinizi doğrulayın.');
+        
+        // Login formunu göster
+        document.getElementById('registerForm').style.display = 'none';
+        document.getElementById('loginForm').style.display = 'block';
     } catch (error) {
-        alert(`Kayıt hatası: ${error.message}`);
+        console.error(error);
+        switch (error.code) {
+            case 'auth/email-already-in-use':
+                showError('registerEmailError', 'Bu e-posta adresi zaten kullanımda');
+                break;
+            case 'auth/invalid-email':
+                showError('registerEmailError', 'Geçersiz e-posta adresi');
+                break;
+            case 'auth/weak-password':
+                showError('registerPasswordError', 'Şifre çok zayıf');
+                break;
+            default:
+                alert(`Kayıt hatası: ${error.message}`);
+        }
     }
 });
 
 // Giriş yap
 loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    
+    // Hata mesajlarını temizle
+    clearErrors();
+    
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
 
     try {
-        await signInWithEmailAndPassword(auth, email, password);
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+        
+        if (!user.emailVerified) {
+            throw new Error('email-not-verified');
+        }
+        
+        // Giriş başarılı, ana uygulamaya yönlendir
+        showMainApp();
     } catch (error) {
-        alert(`Giriş hatası: ${error.message}`);
+        console.error(error);
+        switch (error.code) {
+            case 'auth/user-not-found':
+                showError('loginEmailError', 'Kullanıcı bulunamadı');
+                break;
+            case 'auth/wrong-password':
+                showError('loginPasswordError', 'Hatalı şifre');
+                break;
+            case 'auth/invalid-email':
+                showError('loginEmailError', 'Geçersiz e-posta adresi');
+                break;
+            case 'email-not-verified':
+                showError('loginEmailError', 'Lütfen önce e-posta adresinizi doğrulayın');
+                break;
+            default:
+                alert(`Giriş hatası: ${error.message}`);
+        }
     }
 });
 
@@ -395,4 +460,20 @@ document.getElementById('showRegister').onclick = () => {
 document.getElementById('showLogin').onclick = () => {
     document.getElementById('registerForm').style.display = 'none';
     document.getElementById('loginForm').style.display = 'block';
-}; 
+};
+
+// Hata gösterme fonksiyonu
+function showError(elementId, message) {
+    const errorElement = document.getElementById(elementId);
+    errorElement.textContent = message;
+    errorElement.style.display = 'block';
+}
+
+// Hataları temizleme fonksiyonu
+function clearErrors() {
+    const errorElements = document.getElementsByClassName('error-message');
+    for (let element of errorElements) {
+        element.style.display = 'none';
+        element.textContent = '';
+    }
+} 
