@@ -178,14 +178,12 @@ onAuthStateChanged(auth, (user) => {
 registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    // Hata mesajlarını temizle
     clearErrors();
     
     const email = document.getElementById('registerEmail').value;
     const password = document.getElementById('registerPassword').value;
     const name = document.getElementById('registerName').value;
 
-    // Basit validasyon
     if (name.length < 3) {
         showError('registerNameError', 'İsim en az 3 karakter olmalıdır');
         return;
@@ -197,12 +195,12 @@ registerForm.addEventListener('submit', async (e) => {
     }
 
     try {
-        // Önce kullanıcıyı Firebase Auth'da oluştur
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
         
-        // Kullanıcı bilgilerini veritabanına kaydet
-        await set(ref(database, `users/${user.uid}`), {
+        // Kullanıcı veritabanı kaydını güncelle
+        const userRef = ref(database, `users/${user.uid}`);
+        await set(userRef, {
             name: name,
             email: email,
             createdAt: serverTimestamp(),
@@ -210,17 +208,18 @@ registerForm.addEventListener('submit', async (e) => {
             lastOnline: serverTimestamp()
         });
 
-        // E-posta doğrulama gönder
         await sendEmailVerification(user);
         
-        // Başarılı kayıt mesajı
         alert('Kayıt başarılı! Lütfen e-posta adresinizi doğrulayın.');
+        
+        // Kullanıcıyı otomatik olarak çıkış yaptır
+        await auth.signOut();
         
         // Login formunu göster
         document.getElementById('registerForm').style.display = 'none';
         document.getElementById('loginForm').style.display = 'block';
     } catch (error) {
-        console.error(error);
+        console.error("Kayıt hatası:", error);
         switch (error.code) {
             case 'auth/email-already-in-use':
                 showError('registerEmailError', 'Bu e-posta adresi zaten kullanımda');
@@ -231,8 +230,11 @@ registerForm.addEventListener('submit', async (e) => {
             case 'auth/weak-password':
                 showError('registerPasswordError', 'Şifre çok zayıf');
                 break;
+            case 'auth/operation-not-allowed':
+                showError('registerEmailError', 'E-posta/şifre girişi etkin değil');
+                break;
             default:
-                alert(`Kayıt hatası: ${error.message}`);
+                showError('registerEmailError', `Kayıt hatası: ${error.message}`);
         }
     }
 });
