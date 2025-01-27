@@ -58,6 +58,7 @@ let currentChatType = null; // 'private' veya 'group'
 let typingTimeout = null;
 let lastTypingUpdate = 0;
 let unreadMessages = {};
+let userOwnedGroup = null;
 
 // Mobil menü toggle
 mobileMenuBtn?.addEventListener('click', () => {
@@ -223,6 +224,7 @@ onAuthStateChanged(auth, async (user) => {
             loadUserData();
             loadUsers();
             loadGroups();
+            checkUserGroup();
         } catch (error) {
             console.error('Kullanıcı durumu güncellenirken hata:', error);
         }
@@ -424,28 +426,6 @@ messageForm.addEventListener('submit', async (e) => {
         } catch (error) {
             console.error("Mesaj gönderilirken hata oluştu:", error);
             alert("Mesaj gönderilemedi. Lütfen tekrar deneyin.");
-        }
-    }
-});
-
-// Grup oluştur
-createGroupBtn.addEventListener('click', async () => {
-    const groupName = prompt('Grup adını girin:');
-    if (groupName) {
-        try {
-            const groupRef = push(ref(database, 'groups'));
-            await set(groupRef, {
-                name: groupName,
-                createdBy: currentUser.uid,
-                createdAt: serverTimestamp(),
-                members: {
-                    [currentUser.uid]: true
-                },
-                unread: {}
-            });
-            alert('Grup başarıyla oluşturuldu!');
-        } catch (error) {
-            alert('Grup oluşturulurken bir hata oluştu: ' + error.message);
         }
     }
 });
@@ -670,4 +650,168 @@ document.addEventListener('DOMContentLoaded', () => {
     rememberMeCheckbox.addEventListener('change', (e) => {
         localStorage.setItem('rememberMe', e.target.checked);
     });
-}); 
+});
+
+// Kullanıcının grup kontrolü
+async function checkUserGroup() {
+    const userGroupRef = ref(database, `users/${currentUser.uid}/ownedGroup`);
+    const snapshot = await get(userGroupRef);
+    userOwnedGroup = snapshot.val();
+    
+    // Grup oluştur butonunu güncelle
+    updateCreateGroupButton();
+}
+
+// Grup oluştur butonunu güncelle
+function updateCreateGroupButton() {
+    const createGroupBtn = document.getElementById('createGroupBtn');
+    if (userOwnedGroup) {
+        createGroupBtn.innerHTML = '<i class="fas fa-users"></i> Grubumu Yönet';
+        createGroupBtn.onclick = () => openGroupManagement(userOwnedGroup);
+    } else {
+        createGroupBtn.innerHTML = '<i class="fas fa-users"></i> Yeni Grup';
+        createGroupBtn.onclick = createNewGroup;
+    }
+}
+
+// Yeni grup oluştur
+async function createNewGroup() {
+    if (userOwnedGroup) {
+        alert('Zaten bir grubunuz var!');
+        return;
+    }
+
+    const groupName = prompt('Grup adını girin:');
+    if (!groupName) return;
+
+    try {
+        // Yeni grup oluştur
+        const groupsRef = ref(database, 'groups');
+        const newGroupRef = push(groupsRef);
+        const groupId = newGroupRef.key;
+        
+        const groupData = {
+            name: groupName,
+            owner: currentUser.uid,
+            createdAt: serverTimestamp(),
+            members: {
+                [currentUser.uid]: {
+                    role: 'owner',
+                    joinedAt: serverTimestamp()
+                }
+            }
+        };
+
+        await set(newGroupRef, groupData);
+        
+        // Kullanıcının grup bilgisini güncelle
+        await set(ref(database, `users/${currentUser.uid}/ownedGroup`), groupId);
+        
+        userOwnedGroup = groupId;
+        updateCreateGroupButton();
+        loadGroups();
+        
+    } catch (error) {
+        console.error('Grup oluşturma hatası:', error);
+        alert('Grup oluşturulurken bir hata oluştu.');
+    }
+}
+
+// Grup yönetimi penceresini aç
+function openGroupManagement(groupId) {
+    // Mevcut sohbet alanını grup yönetimi arayüzüne dönüştür
+    const chatContainer = document.querySelector('.chat-container');
+    const groupRef = ref(database, `groups/${groupId}`);
+    
+    get(groupRef).then((snapshot) => {
+        const groupData = snapshot.val();
+        
+        chatContainer.innerHTML = `
+            <div class="group-management">
+                <div class="group-header">
+                    <h2>${groupData.name}</h2>
+                    <div class="group-actions">
+                        <button class="edit-group-name">
+                            <i class="fas fa-edit"></i> İsmi Değiştir
+                        </button>
+                        <button class="delete-group" style="color: #dc3545">
+                            <i class="fas fa-trash"></i> Grubu Sil
+                        </button>
+                    </div>
+                </div>
+                <div class="group-stats">
+                    <div>Üye Sayısı: <span id="memberCount">0</span></div>
+                    <div>Oluşturulma: <span id="creationDate"></span></div>
+                </div>
+                <div class="group-members">
+                    <h3>Üyeler</h3>
+                    <div id="membersList"></div>
+                </div>
+            </div>
+        `;
+
+        // Event listener'ları ekle
+        document.querySelector('.edit-group-name').onclick = () => editGroupName(groupId);
+        document.querySelector('.delete-group').onclick = () => deleteGroup(groupId);
+        
+        // Üyeleri listele
+        loadGroupMembers(groupId);
+    });
+}
+
+// Grup ismini düzenle
+async function editGroupName(groupId) {
+    const newName = prompt('Yeni grup adını girin:');
+    if (!newName) return;
+
+    try {
+        await update(ref(database, `groups/${groupId}`), {
+            name: newName
+        });
+        loadGroups();
+    } catch (error) {
+        console.error('İsim değiştirme hatası:', error);
+        alert('İsim değiştirilirken bir hata oluştu.');
+    }
+}
+
+// Grubu sil
+async function deleteGroup(groupId) {
+    if (!confirm('Grubu silmek istediğinizden emin misiniz?')) return;
+
+    try {
+        await set(ref(database, `groups/${groupId}`), null);
+        await set(ref(database, `users/${currentUser.uid}/ownedGroup`), null);
+        
+        userOwnedGroup = null;
+        updateCreateGroupButton();
+        loadGroups();
+        
+        // Ana sohbet görünümüne dön
+        document.querySelector('.chat-container').innerHTML = `
+            <div id="chatHeader">
+                <div class="chat-avatar"></div>
+                <div class="chat-info">
+                    <h2 class="chat-name">Sohbet seçin</h2>
+                    <div class="chat-status"></div>
+                </div>
+            </div>
+            <div class="messages" id="messages"></div>
+            <div class="typing-indicator" id="typingIndicator" style="display: none;">
+                Birisi yazıyor...
+            </div>
+            <form class="message-form" id="messageForm">
+                <button type="button" id="emojiBtn">
+                    <i class="far fa-smile"></i>
+                </button>
+                <input type="text" id="messageInput" placeholder="Mesajınızı yazın..." required>
+                <button type="submit">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </form>
+        `;
+    } catch (error) {
+        console.error('Grup silme hatası:', error);
+        alert('Grup silinirken bir hata oluştu.');
+    }
+} 
