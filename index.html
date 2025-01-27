@@ -15,6 +15,7 @@
             --dark-color: #2e2e2e;
             --light-color: #ffffff;
             --border-color: #e6ebf5;
+            --hover-color: #f5f7fb;
         }
 
         * {
@@ -118,7 +119,255 @@
         /* Ana uygulama stilleri buraya gelecek */
         .container {
             display: none;
-            /* Diğer stiller aynı kalacak */
+            width: 100%;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            background: var(--light-color);
+        }
+
+        .chat-wrapper {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            height: 100vh;
+        }
+
+        .sidebar {
+            background: var(--light-color);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        #userInfo {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+        }
+
+        .user-details {
+            flex: 1;
+        }
+
+        .user-name {
+            font-weight: 500;
+            color: var(--dark-color);
+        }
+
+        .user-status {
+            font-size: 0.85rem;
+            color: #6c757d;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .search-box {
+            padding: 15px;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 10px 15px 10px 40px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            background: var(--secondary-color);
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 25px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6c757d;
+        }
+
+        .chat-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .chat-item {
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.3s ease;
+            margin-bottom: 5px;
+        }
+
+        .chat-item:hover {
+            background: var(--hover-color);
+        }
+
+        .chat-item.active {
+            background: var(--hover-color);
+        }
+
+        .chat-item-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chat-item-info {
+            flex: 1;
+        }
+
+        .chat-item-name {
+            font-weight: 500;
+            color: var(--dark-color);
+            margin-bottom: 3px;
+        }
+
+        .chat-item-last-message {
+            font-size: 0.85rem;
+            color: #6c757d;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background: var(--secondary-color);
+        }
+
+        #chatHeader {
+            padding: 20px;
+            background: var(--light-color);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .message {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            position: relative;
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+
+        .message:not(.own) {
+            background: var(--light-color);
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+        }
+
+        .message.own {
+            background: var(--primary-color);
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message-form {
+            padding: 20px;
+            background: var(--light-color);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .message-form input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            background: var(--secondary-color);
+        }
+
+        .message-form button {
+            width: auto;
+            padding: 12px;
+            border-radius: 8px;
+        }
+
+        .nav-links {
+            padding: 15px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .nav-links button {
+            flex: 1;
+            padding: 10px;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .chat-wrapper {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                position: fixed;
+                left: -320px;
+                width: 320px;
+                z-index: 1000;
+                transition: 0.3s;
+            }
+
+            .sidebar.active {
+                left: 0;
+            }
+
+            .mobile-menu-btn {
+                display: block;
+                position: fixed;
+                top: 20px;
+                left: 20px;
+                z-index: 1001;
+                background: var(--primary-color);
+                color: white;
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                border: none;
+                cursor: pointer;
+            }
         }
     </style>
 </head>
@@ -171,86 +420,76 @@
         </div>
     </div>
 
-    <!-- Ana uygulama içeriği aynı kalacak -->
+    <!-- Ana uygulama -->
     <div id="mainContainer" class="container">
-        <!-- Mobil Menü Butonu -->
-        <button class="mobile-menu-btn" id="mobileMenuBtn">
-            <i class="fas fa-bars"></i>
-        </button>
+        <div class="chat-wrapper">
+            <!-- Mobil menü butonu -->
+            <button class="mobile-menu-btn" id="mobileMenuBtn">
+                <i class="fas fa-bars"></i>
+            </button>
 
-        <!-- Sidebar -->
-        <div class="sidebar" id="sidebar">
-            <div id="userInfo">
-                <div class="user-avatar"></div>
-                <div class="user-details">
-                    <div class="user-name"></div>
-                    <div class="user-status">
-                        <span class="online-status"></span>
-                        Çevrimiçi
+            <!-- Sidebar -->
+            <div class="sidebar" id="sidebar">
+                <div id="userInfo">
+                    <div class="user-avatar">
+                        <!-- Kullanıcı baş harfleri buraya gelecek -->
+                    </div>
+                    <div class="user-details">
+                        <div class="user-name"></div>
+                        <div class="user-status">
+                            <span class="online-status"></span>
+                            <span>Çevrimiçi</span>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="search-box">
-                <i class="fas fa-search"></i>
-                <input type="text" placeholder="Ara..." id="searchInput">
-            </div>
-
-            <div class="nav-links">
-                <button id="createGroupBtn">
-                    <i class="fas fa-users"></i>
-                    Yeni Grup Oluştur
-                </button>
-                <button id="logoutBtn">
-                    <i class="fas fa-sign-out-alt"></i>
-                    Çıkış Yap
-                </button>
-            </div>
-
-            <div class="user-list" id="userList">
-                <div class="list-header">
-                    <h3>Kullanıcılar</h3>
-                    <span class="online-count"></span>
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="Ara..." id="searchInput">
                 </div>
-                <!-- Kullanıcılar buraya dinamik olarak eklenecek -->
-            </div>
 
-            <div class="group-list" id="groupList">
-                <div class="list-header">
-                    <h3>Gruplar</h3>
-                    <button class="refresh-btn">
-                        <i class="fas fa-sync-alt"></i>
+                <div class="nav-links">
+                    <button id="createGroupBtn">
+                        <i class="fas fa-users"></i>
+                        Yeni Grup
+                    </button>
+                    <button id="logoutBtn">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Çıkış
                     </button>
                 </div>
-                <!-- Gruplar buraya dinamik olarak eklenecek -->
-            </div>
-        </div>
 
-        <!-- Sohbet Alanı -->
-        <div class="chat-container">
-            <div id="chatHeader">
-                <div class="chat-avatar"></div>
-                <div class="chat-info">
-                    <h2 class="chat-name">Sohbet</h2>
-                    <div class="chat-status"></div>
+                <div class="chat-list" id="chatList">
+                    <!-- Sohbetler buraya dinamik olarak eklenecek -->
                 </div>
             </div>
 
-            <div class="messages" id="messages"></div>
+            <!-- Sohbet alanı -->
+            <div class="chat-container">
+                <div id="chatHeader">
+                    <div class="chat-avatar"></div>
+                    <div class="chat-info">
+                        <h2 class="chat-name">Sohbet seçin</h2>
+                        <div class="chat-status"></div>
+                    </div>
+                </div>
 
-            <div class="typing-indicator" id="typingIndicator" style="display: none;">
-                Birisi yazıyor...
+                <div class="messages" id="messages"></div>
+
+                <div class="typing-indicator" id="typingIndicator" style="display: none;">
+                    Birisi yazıyor...
+                </div>
+
+                <form class="message-form" id="messageForm">
+                    <button type="button" id="emojiBtn">
+                        <i class="far fa-smile"></i>
+                    </button>
+                    <input type="text" id="messageInput" placeholder="Mesajınızı yazın..." required>
+                    <button type="submit">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
             </div>
-
-            <form class="message-form" id="messageForm">
-                <button type="button" id="emojiBtn">
-                    <i class="far fa-smile"></i>
-                </button>
-                <input type="text" id="messageInput" placeholder="Mesajınızı yazın..." required>
-                <button type="submit">
-                    <i class="fas fa-paper-plane"></i>
-                </button>
-            </form>
         </div>
     </div>
 
