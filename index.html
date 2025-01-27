@@ -4,25 +4,40 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
-    <title>Anonim Mesajlaşma</title>
+    <title>Mesajlaşma Platformu</title>
     <script type="module" src="https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js"></script>
     <script type="module" src="https://www.gstatic.com/firebasejs/11.2.0/firebase-database.js"></script>
+    <script type="module" src="https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 800px;
+            max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
             background-color: #f0f2f5;
         }
-        .chat-container {
+        .container {
+            display: none;
+            grid-template-columns: 250px 1fr;
+            gap: 20px;
+        }
+        .auth-container, .chat-container, .sidebar {
             background-color: white;
             border-radius: 10px;
             padding: 20px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
+        .auth-container {
+            max-width: 400px;
+            margin: 50px auto;
+        }
+        .sidebar {
+            height: calc(100vh - 80px);
+            display: flex;
+            flex-direction: column;
+        }
         .messages {
-            height: 400px;
+            height: calc(100vh - 200px);
             overflow-y: auto;
             margin-bottom: 20px;
             padding: 10px;
@@ -35,15 +50,29 @@
             border-radius: 5px;
             background-color: #e9ecef;
         }
-        .message-form {
-            display: flex;
-            gap: 10px;
+        .message.own {
+            background-color: #d4edda;
+            margin-left: 20%;
         }
-        input[type="text"] {
-            flex: 1;
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input[type="text"],
+        input[type="email"],
+        input[type="password"] {
+            width: 100%;
             padding: 10px;
             border: 1px solid #ddd;
             border-radius: 5px;
+            box-sizing: border-box;
+        }
+        .message-form {
+            display: flex;
+            gap: 10px;
         }
         button {
             padding: 10px 20px;
@@ -56,16 +85,118 @@
         button:hover {
             background-color: #0b5ed7;
         }
+        .nav-links {
+            margin-bottom: 20px;
+        }
+        .nav-links button {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .user-list, .group-list {
+            flex: 1;
+            overflow-y: auto;
+            border-top: 1px solid #ddd;
+            padding-top: 10px;
+        }
+        .user-item, .group-item {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .user-item:hover, .group-item:hover {
+            background-color: #f8f9fa;
+        }
+        .active-chat {
+            background-color: #e9ecef;
+        }
+        .auth-toggle {
+            text-align: center;
+            margin-top: 15px;
+        }
+        .auth-toggle span {
+            color: #0d6efd;
+            cursor: pointer;
+        }
+        #userInfo {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+        }
     </style>
 </head>
 <body>
-    <div class="chat-container">
-        <h1>Anonim Mesajlaşma</h1>
-        <div class="messages" id="messages"></div>
-        <form class="message-form" id="messageForm">
-            <input type="text" id="messageInput" placeholder="Mesajınızı yazın..." required>
-            <button type="submit">Gönder</button>
-        </form>
+    <!-- Giriş/Kayıt Formu -->
+    <div id="authContainer" class="auth-container">
+        <div id="loginForm">
+            <h2>Giriş Yap</h2>
+            <form id="login">
+                <div class="form-group">
+                    <label for="loginEmail">E-posta</label>
+                    <input type="email" id="loginEmail" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Şifre</label>
+                    <input type="password" id="loginPassword" required>
+                </div>
+                <button type="submit">Giriş Yap</button>
+            </form>
+            <div class="auth-toggle">
+                Hesabınız yok mu? <span id="showRegister">Kayıt Olun</span>
+            </div>
+        </div>
+
+        <div id="registerForm" style="display: none;">
+            <h2>Kayıt Ol</h2>
+            <form id="register">
+                <div class="form-group">
+                    <label for="registerName">Ad Soyad</label>
+                    <input type="text" id="registerName" required>
+                </div>
+                <div class="form-group">
+                    <label for="registerEmail">E-posta</label>
+                    <input type="email" id="registerEmail" required>
+                </div>
+                <div class="form-group">
+                    <label for="registerPassword">Şifre</label>
+                    <input type="password" id="registerPassword" required>
+                </div>
+                <button type="submit">Kayıt Ol</button>
+            </form>
+            <div class="auth-toggle">
+                Zaten hesabınız var mı? <span id="showLogin">Giriş Yapın</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ana Uygulama -->
+    <div id="mainContainer" class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div id="userInfo"></div>
+            <div class="nav-links">
+                <button id="createGroupBtn">Yeni Grup Oluştur</button>
+                <button id="logoutBtn">Çıkış Yap</button>
+            </div>
+            <div class="user-list" id="userList">
+                <h3>Kullanıcılar</h3>
+                <!-- Kullanıcılar buraya dinamik olarak eklenecek -->
+            </div>
+            <div class="group-list" id="groupList">
+                <h3>Gruplar</h3>
+                <!-- Gruplar buraya dinamik olarak eklenecek -->
+            </div>
+        </div>
+
+        <!-- Sohbet Alanı -->
+        <div class="chat-container">
+            <h2 id="chatHeader">Sohbet</h2>
+            <div class="messages" id="messages"></div>
+            <form class="message-form" id="messageForm">
+                <input type="text" id="messageInput" placeholder="Mesajınızı yazın..." required>
+                <button type="submit">Gönder</button>
+            </form>
+        </div>
     </div>
 
     <script type="module" src="./script.js"></script>
