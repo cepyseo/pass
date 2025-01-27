@@ -1,6 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
-import { getDatabase, ref, push, onValue, set, get } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-database.js";
+import { getDatabase, ref, push, onValue, set, get, update, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-database.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-storage.js";
 
 // Firebase yapılandırması
 const firebaseConfig = {
@@ -18,6 +19,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const database = getDatabase(app);
+const storage = getStorage(app);
 
 // DOM elementleri
 const authContainer = document.getElementById('authContainer');
@@ -33,20 +35,136 @@ const groupList = document.getElementById('groupList');
 const createGroupBtn = document.getElementById('createGroupBtn');
 const logoutBtn = document.getElementById('logoutBtn');
 const chatHeader = document.getElementById('chatHeader');
+const searchInput = document.getElementById('searchInput');
+const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+const sidebar = document.getElementById('sidebar');
+const typingIndicator = document.getElementById('typingIndicator');
+const emojiBtn = document.getElementById('emojiBtn');
 
 let currentUser = null;
 let currentChat = null;
 let currentChatType = null; // 'private' veya 'group'
+let typingTimeout = null;
+let lastTypingUpdate = 0;
+let unreadMessages = {};
+
+// Mobil menü toggle
+mobileMenuBtn?.addEventListener('click', () => {
+    sidebar.classList.toggle('active');
+});
+
+// Arama fonksiyonu
+searchInput.addEventListener('input', (e) => {
+    const searchTerm = e.target.value.toLowerCase();
+    filterList(searchTerm);
+});
+
+function filterList(searchTerm) {
+    const userItems = userList.getElementsByClassName('user-item');
+    const groupItems = groupList.getElementsByClassName('group-item');
+
+    [...userItems, ...groupItems].forEach(item => {
+        const text = item.textContent.toLowerCase();
+        item.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+}
+
+// Çevrimiçi durumu yönetimi
+function updateOnlineStatus(online) {
+    if (!currentUser) return;
+    
+    const userStatusRef = ref(database, `users/${currentUser.uid}/status`);
+    const userLastOnlineRef = ref(database, `users/${currentUser.uid}/lastOnline`);
+    
+    if (online) {
+        set(userStatusRef, 'online');
+    } else {
+        set(userStatusRef, 'offline');
+        set(userLastOnlineRef, serverTimestamp());
+    }
+}
+
+// Yazıyor... göstergesi
+messageInput.addEventListener('input', () => {
+    if (!currentChat) return;
+    
+    const now = Date.now();
+    if (now - lastTypingUpdate > 3000) {
+        const typingRef = ref(database, `${currentChatType}s/${currentChat}/typing/${currentUser.uid}`);
+        set(typingRef, true);
+        lastTypingUpdate = now;
+    }
+
+    clearTimeout(typingTimeout);
+    typingTimeout = setTimeout(() => {
+        const typingRef = ref(database, `${currentChatType}s/${currentChat}/typing/${currentUser.uid}`);
+        set(typingRef, false);
+    }, 3000);
+});
+
+// Yazıyor durumunu dinle
+function listenToTyping() {
+    if (!currentChat) return;
+
+    const typingRef = ref(database, `${currentChatType}s/${currentChat}/typing`);
+    onValue(typingRef, (snapshot) => {
+        const typing = snapshot.val();
+        if (!typing) {
+            typingIndicator.style.display = 'none';
+            return;
+        }
+
+        const typingUsers = Object.entries(typing)
+            .filter(([uid, isTyping]) => uid !== currentUser.uid && isTyping)
+            .map(([uid]) => uid);
+
+        if (typingUsers.length > 0) {
+            typingIndicator.style.display = 'block';
+            // Yazanların isimlerini göster
+            Promise.all(typingUsers.map(uid => 
+                get(ref(database, `users/${uid}/name`))
+            )).then(snapshots => {
+                const names = snapshots.map(snap => snap.val());
+                typingIndicator.textContent = names.join(', ') + ' yazıyor...';
+            });
+        } else {
+            typingIndicator.style.display = 'none';
+        }
+    });
+}
+
+// Okunmamış mesaj sayısını güncelle
+function updateUnreadCount(chatId, type) {
+    const unreadRef = ref(database, `${type}s/${chatId}/unread/${currentUser.uid}`);
+    set(unreadRef, 0);
+}
+
+// Mesaj bildirimlerini yönet
+function handleMessageNotification(message, chatName) {
+    if (Notification.permission === 'granted' && document.hidden) {
+        new Notification(`Yeni Mesaj - ${chatName}`, {
+            body: `${message.senderName}: ${message.text}`,
+            icon: '/path/to/icon.png'
+        });
+    }
+}
 
 // Auth durum değişikliklerini dinle
 onAuthStateChanged(auth, (user) => {
     if (user) {
         if (user.emailVerified) {
             currentUser = user;
+            updateOnlineStatus(true);
+            window.addEventListener('beforeunload', () => updateOnlineStatus(false));
             showMainApp();
             loadUserData();
             loadUsers();
             loadGroups();
+            
+            // Bildirim izni iste
+            if (Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
         } else {
             alert('Lütfen e-posta adresinizi doğrulayın!');
             auth.signOut();
@@ -67,14 +185,14 @@ registerForm.addEventListener('submit', async (e) => {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
         
-        // Kullanıcı bilgilerini veritabanına kaydet
         await set(ref(database, `users/${user.uid}`), {
             name: name,
             email: email,
-            createdAt: Date.now()
+            createdAt: serverTimestamp(),
+            status: 'offline',
+            lastOnline: serverTimestamp()
         });
 
-        // E-posta doğrulama gönder
         await sendEmailVerification(user);
         alert('Kayıt başarılı! Lütfen e-posta adresinizi doğrulayın.');
     } catch (error) {
@@ -97,6 +215,7 @@ loginForm.addEventListener('submit', async (e) => {
 
 // Çıkış yap
 logoutBtn.addEventListener('click', () => {
+    updateOnlineStatus(false);
     auth.signOut();
 });
 
@@ -108,11 +227,28 @@ messageForm.addEventListener('submit', async (e) => {
     if (message && currentChat) {
         try {
             const chatRef = ref(database, `${currentChatType}s/${currentChat}/messages`);
-            await push(chatRef, {
+            const messageData = {
                 text: message,
                 senderId: currentUser.uid,
                 senderName: (await get(ref(database, `users/${currentUser.uid}/name`))).val(),
-                timestamp: Date.now()
+                timestamp: serverTimestamp()
+            };
+
+            await push(chatRef, messageData);
+            
+            // Okunmamış mesajları güncelle
+            const chatMembersRef = ref(database, `${currentChatType}s/${currentChat}/members`);
+            const membersSnapshot = await get(chatMembersRef);
+            const members = membersSnapshot.val() || {};
+            
+            Object.keys(members).forEach(memberId => {
+                if (memberId !== currentUser.uid) {
+                    const unreadRef = ref(database, `${currentChatType}s/${currentChat}/unread/${memberId}`);
+                    get(unreadRef).then(snapshot => {
+                        const current = snapshot.val() || 0;
+                        set(unreadRef, current + 1);
+                    });
+                }
             });
             
             messageInput.value = '';
@@ -127,15 +263,21 @@ messageForm.addEventListener('submit', async (e) => {
 createGroupBtn.addEventListener('click', async () => {
     const groupName = prompt('Grup adını girin:');
     if (groupName) {
-        const groupRef = push(ref(database, 'groups'));
-        await set(groupRef, {
-            name: groupName,
-            createdBy: currentUser.uid,
-            createdAt: Date.now(),
-            members: {
-                [currentUser.uid]: true
-            }
-        });
+        try {
+            const groupRef = push(ref(database, 'groups'));
+            await set(groupRef, {
+                name: groupName,
+                createdBy: currentUser.uid,
+                createdAt: serverTimestamp(),
+                members: {
+                    [currentUser.uid]: true
+                },
+                unread: {}
+            });
+            alert('Grup başarıyla oluşturuldu!');
+        } catch (error) {
+            alert('Grup oluşturulurken bir hata oluştu: ' + error.message);
+        }
     }
 });
 
@@ -143,14 +285,28 @@ createGroupBtn.addEventListener('click', async () => {
 async function loadUsers() {
     const usersRef = ref(database, 'users');
     onValue(usersRef, (snapshot) => {
-        userList.innerHTML = '<h3>Kullanıcılar</h3>';
+        userList.innerHTML = '<div class="list-header"><h3>Kullanıcılar</h3></div>';
         snapshot.forEach((childSnapshot) => {
             const userData = childSnapshot.val();
             const userId = childSnapshot.key;
             if (userId !== currentUser.uid) {
                 const userElement = document.createElement('div');
                 userElement.className = 'user-item';
-                userElement.textContent = userData.name;
+                
+                const statusDot = document.createElement('span');
+                statusDot.className = `online-status ${userData.status === 'online' ? '' : 'offline-status'}`;
+                
+                const userName = document.createElement('span');
+                userName.textContent = userData.name;
+                
+                const unreadBadge = document.createElement('span');
+                unreadBadge.className = 'unread-badge';
+                unreadBadge.style.display = 'none';
+                
+                userElement.appendChild(statusDot);
+                userElement.appendChild(userName);
+                userElement.appendChild(unreadBadge);
+                
                 userElement.onclick = () => startPrivateChat(userId, userData.name);
                 userList.appendChild(userElement);
             }
