@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
 import { getDatabase, ref, push, onValue, set, get, update, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-database.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-storage.js";
 
 // Firebase yapılandırması
@@ -17,7 +17,18 @@ const firebaseConfig = {
 
 // Firebase'i başlat
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+const auth = getAuth();
+auth.useDeviceLanguage(); // Tarayıcı dilini kullan
+
+// Persistence ayarını güncelle
+setPersistence(auth, browserLocalPersistence)
+    .then(() => {
+        console.log('Persistence ayarlandı');
+    })
+    .catch((error) => {
+        console.error('Persistence hatası:', error);
+    });
+
 const database = getDatabase(app);
 const storage = getStorage(app);
 
@@ -150,26 +161,32 @@ function handleMessageNotification(message, chatName) {
 }
 
 // Auth durum değişikliklerini dinle
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
     if (user) {
-        if (user.emailVerified) {
+        try {
+            // Kullanıcı oturumu açık
             currentUser = user;
-            updateOnlineStatus(true);
-            window.addEventListener('beforeunload', () => updateOnlineStatus(false));
+            
+            // Kullanıcı durumunu güncelle
+            await set(ref(database, `users/${user.uid}/status`), 'online');
+            
+            // Çıkış yapıldığında veya sayfa kapandığında durumu güncelle
+            window.addEventListener('beforeunload', async () => {
+                if (currentUser) {
+                    await set(ref(database, `users/${currentUser.uid}/status`), 'offline');
+                }
+            });
+
             showMainApp();
             loadUserData();
             loadUsers();
             loadGroups();
-            
-            // Bildirim izni iste
-            if (Notification.permission === 'default') {
-                Notification.requestPermission();
-            }
-        } else {
-            alert('Lütfen e-posta adresinizi doğrulayın!');
-            auth.signOut();
+        } catch (error) {
+            console.error('Kullanıcı durumu güncellenirken hata:', error);
         }
     } else {
+        // Kullanıcı oturumu kapalı
+        currentUser = null;
         showAuthContainer();
     }
 });
@@ -249,48 +266,77 @@ registerForm.addEventListener('submit', async (e) => {
 // Giriş yap
 loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    
-    // Hata mesajlarını temizle
     clearErrors();
     
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
+    const submitButton = loginForm.querySelector('button[type="submit"]');
 
     try {
+        submitButton.disabled = true;
+        submitButton.textContent = 'Giriş yapılıyor...';
+
+        // Önce persistence ayarını yap
+        await setPersistence(auth, browserLocalPersistence);
+        
+        // Sonra giriş yap
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
-        
+
         if (!user.emailVerified) {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Giriş Yap';
             throw new Error('email-not-verified');
         }
+
+        // Kullanıcı durumunu güncelle
+        await set(ref(database, `users/${user.uid}/status`), 'online');
         
-        // Giriş başarılı, ana uygulamaya yönlendir
+        // Ana sayfaya yönlendir
         showMainApp();
+        
     } catch (error) {
-        console.error(error);
-        switch (error.code) {
-            case 'auth/user-not-found':
-                showError('loginEmailError', 'Kullanıcı bulunamadı');
-                break;
-            case 'auth/wrong-password':
-                showError('loginPasswordError', 'Hatalı şifre');
-                break;
-            case 'auth/invalid-email':
-                showError('loginEmailError', 'Geçersiz e-posta adresi');
-                break;
-            case 'email-not-verified':
-                showError('loginEmailError', 'Lütfen önce e-posta adresinizi doğrulayın');
-                break;
-            default:
-                alert(`Giriş hatası: ${error.message}`);
+        console.error('Giriş hatası:', error);
+        submitButton.disabled = false;
+        submitButton.textContent = 'Giriş Yap';
+
+        if (error.code === 'auth/network-request-failed') {
+            showError('loginEmailError', 'İnternet bağlantınızı kontrol edin');
+        } else if (error.message === 'email-not-verified') {
+            showError('loginEmailError', 'Lütfen önce e-posta adresinizi doğrulayın');
+        } else {
+            switch (error.code) {
+                case 'auth/user-not-found':
+                    showError('loginEmailError', 'Kullanıcı bulunamadı');
+                    break;
+                case 'auth/wrong-password':
+                    showError('loginPasswordError', 'Hatalı şifre');
+                    break;
+                case 'auth/invalid-email':
+                    showError('loginEmailError', 'Geçersiz e-posta adresi');
+                    break;
+                case 'auth/too-many-requests':
+                    showError('loginEmailError', 'Çok fazla başarısız deneme. Lütfen daha sonra tekrar deneyin');
+                    break;
+                default:
+                    showError('loginEmailError', 'Giriş yapılamadı. Lütfen tekrar deneyin.');
+            }
         }
     }
 });
 
 // Çıkış yap
-logoutBtn.addEventListener('click', () => {
-    updateOnlineStatus(false);
-    auth.signOut();
+logoutBtn.addEventListener('click', async () => {
+    try {
+        if (currentUser) {
+            await set(ref(database, `users/${currentUser.uid}/status`), 'offline');
+        }
+        await signOut(auth);
+        showAuthContainer();
+    } catch (error) {
+        console.error('Çıkış yapılırken hata:', error);
+        alert('Çıkış yapılırken bir hata oluştu');
+    }
 });
 
 // Mesaj gönderme
