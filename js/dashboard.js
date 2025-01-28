@@ -1,3 +1,8 @@
+// Kullanıcı durumu kontrolü için global değişkenler
+let isOnline = true;
+let userInfo = null;
+let isAdmin = false;
+
 // Sayfa yüklendiğinde çalışacak kodlar
 document.addEventListener('DOMContentLoaded', function() {
     // Auth durumunu kontrol et
@@ -166,10 +171,37 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Kullanıcı bilgilerini getir
             const userRef = firebase.database().ref('users/' + user.uid);
-            userRef.once('value').then((snapshot) => {
-                const userData = snapshot.val();
-                currentUserName = `${userData.name} ${userData.surname}`;
+            const snapshot = await userRef.once('value');
+            userInfo = snapshot.val();
+            currentUserName = `${userInfo.name} ${userInfo.surname}`;
+
+            // Online durumunu ayarla
+            const userStatusRef = firebase.database().ref('status/' + user.uid);
+            
+            // Çevrimiçi durumunu güncelle
+            const isOnlineRef = firebase.database().ref('.info/connected');
+            isOnlineRef.on('value', (snapshot) => {
+                if (snapshot.val()) {
+                    userStatusRef.onDisconnect().remove();
+                    userStatusRef.set({
+                        online: true,
+                        lastSeen: firebase.database.ServerValue.TIMESTAMP,
+                        userInfo: {
+                            name: userInfo.name,
+                            surname: userInfo.surname,
+                            email: userInfo.email
+                        }
+                    });
+                }
             });
+
+            // Admin kontrolü
+            isAdmin = user.email === 'cepyseo@outlook.com';
+            
+            // Admin panelini göster
+            if (isAdmin) {
+                showAdminPanel();
+            }
         } else {
             window.location.href = 'index.html';
         }
@@ -187,40 +219,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Müşteri hizmetlerine bağlanma butonu
     connectSupport.addEventListener('click', () => {
-        if (!isInQueue) {
-            const queueRef = firebase.database().ref('queue');
-            const userId = firebase.auth().currentUser.uid;
-            
-            // Önce mevcut durumu kontrol et
-            firebase.database().ref('supportStatus').once('value')
-                .then((snapshot) => {
-                    const status = snapshot.val() || {};
-                    
-                    if (!status.busy) {
-                        // Müşteri hizmetleri müsaitse direkt bağlan
-                        startChat();
-                        // Meşgul durumunu güncelle
-                        firebase.database().ref('supportStatus').update({
-                            busy: true,
-                            currentUser: userId
-                        });
-                    } else {
-                        // Sıraya ekle
-                        queueRef.child(userId).set({
-                            name: currentUserName,
-                            email: firebase.auth().currentUser.email,
-                            timestamp: Date.now()
-                        });
-
-                        isInQueue = true;
-                        connectSupport.textContent = 'Sıradasınız...';
-                        connectSupport.disabled = true;
-                        
-                        // Sıra durumunu dinle
-                        listenForQueue(userId);
-                    }
-                });
+        if (!isOnline) {
+            alert('İnternet bağlantınız yok! Lütfen bağlantınızı kontrol edin.');
+            return;
         }
+
+        const userId = firebase.auth().currentUser.uid;
+        
+        // Ban kontrolü
+        firebase.database().ref('bannedUsers/' + userId).once('value')
+            .then((snapshot) => {
+                if (snapshot.val()) {
+                    alert('Hesabınız engellenmiş durumda!');
+                    return;
+                }
+                
+                // Normal sıraya girme işlemleri...
+                addToQueue(userId);
+            });
     });
 
     // Sıra durumunu dinleme fonksiyonu
@@ -283,4 +299,143 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     updateQueueCount();
+
+    // Admin paneli
+    function showAdminPanel() {
+        const adminPanel = document.createElement('div');
+        adminPanel.className = 'admin-panel';
+        adminPanel.innerHTML = `
+            <h3>Yönetici Paneli</h3>
+            <div class="admin-controls">
+                <button id="viewUsers">Kullanıcıları Görüntüle</button>
+                <button id="viewQueue">Sıradaki Kullanıcılar</button>
+                <div id="userList" class="user-list"></div>
+            </div>
+        `;
+        document.body.appendChild(adminPanel);
+
+        // Admin kontrolleri
+        document.getElementById('viewUsers').addEventListener('click', showUserList);
+        document.getElementById('viewQueue').addEventListener('click', showQueueList);
+    }
+
+    // Kullanıcı listesi
+    function showUserList() {
+        const userList = document.getElementById('userList');
+        firebase.database().ref('users').on('value', (snapshot) => {
+            const users = snapshot.val();
+            let html = '<h4>Kayıtlı Kullanıcılar</h4>';
+            
+            for (let uid in users) {
+                const user = users[uid];
+                html += `
+                    <div class="user-item">
+                        <span>${user.name} ${user.surname} (${user.email})</span>
+                        <button onclick="banUser('${uid}')">Banla</button>
+                        <button onclick="muteUser('${uid}')">Sustur</button>
+                    </div>
+                `;
+            }
+            userList.innerHTML = html;
+        });
+    }
+
+    // Sıra yönetimi güncellemesi
+    function updateQueue() {
+        const queueRef = firebase.database().ref('queue');
+        queueRef.orderByChild('timestamp').on('value', (snapshot) => {
+            const queue = snapshot.val() || {};
+            const onlineUsers = {};
+            
+            // Önce online kullanıcıları kontrol et
+            Object.entries(queue).forEach(([userId, userData]) => {
+                firebase.database().ref('status/' + userId).once('value')
+                    .then((statusSnapshot) => {
+                        if (statusSnapshot.val()?.online) {
+                            onlineUsers[userId] = userData;
+                        } else {
+                            // Çevrimdışı kullanıcıyı sıradan çıkar
+                            queueRef.child(userId).remove();
+                        }
+                    });
+            });
+
+            // Sıra bilgisini güncelle
+            updateQueueDisplay(onlineUsers);
+        });
+    }
+
+    // Admin için sıra yönetimi
+    function showQueueList() {
+        if (!isAdmin) return;
+
+        const queueList = document.getElementById('userList');
+        firebase.database().ref('queue').on('value', (snapshot) => {
+            const queue = snapshot.val();
+            let html = '<h4>Sıradaki Kullanıcılar</h4>';
+            
+            Object.entries(queue || {}).forEach(([userId, data]) => {
+                html += `
+                    <div class="queue-item">
+                        <span>${data.userInfo.name} ${data.userInfo.surname}</span>
+                        <span>${data.userInfo.email}</span>
+                        <button onclick="removeFromQueue('${userId}')">Sıradan Çıkar</button>
+                    </div>
+                `;
+            });
+            queueList.innerHTML = html;
+        });
+    }
+
+    // Admin fonksiyonları
+    window.banUser = function(uid) {
+        if (!isAdmin) return;
+        firebase.database().ref('bannedUsers/' + uid).set(true);
+        firebase.database().ref('queue/' + uid).remove();
+    };
+
+    window.muteUser = function(uid) {
+        if (!isAdmin) return;
+        firebase.database().ref('mutedUsers/' + uid).set(true);
+    };
+
+    window.removeFromQueue = function(uid) {
+        if (!isAdmin) return;
+        firebase.database().ref('queue/' + uid).remove();
+    };
+
+    // Sıraya girme işlemi güncellemesi
+    function addToQueue(userId) {
+        const queueRef = firebase.database().ref('queue');
+        
+        // Önce mevcut durumu kontrol et
+        firebase.database().ref('supportStatus').once('value')
+            .then((snapshot) => {
+                const status = snapshot.val() || {};
+                
+                if (!status.busy) {
+                    // Müşteri hizmetleri müsaitse direkt bağlan
+                    startChat();
+                    // Meşgul durumunu güncelle
+                    firebase.database().ref('supportStatus').update({
+                        busy: true,
+                        currentUser: userId
+                    });
+                } else {
+                    // Sıraya ekle
+                    queueRef.child(userId).set({
+                        name: currentUserName,
+                        email: firebase.auth().currentUser.email,
+                        timestamp: Date.now()
+                    });
+
+                    isInQueue = true;
+                    connectSupport.textContent = 'Sıradasınız...';
+                    connectSupport.disabled = true;
+                    
+                    // Sıra durumunu dinle
+                    listenForQueue(userId);
+                }
+            });
+    }
 }); 
