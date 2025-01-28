@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClonicPass - Giriş</title>
+    <title>ClonicPass - Dashboard</title>
     <link rel="stylesheet" href="css/style.css">
     <!-- Firebase SDK'ları -->
     <script type="module">
@@ -31,25 +31,33 @@
     </script>
 </head>
 <body>
-    <div class="login-container">
-        <div class="login-box">
-            <h1>ClonicPass</h1>
-            <form id="loginForm">
-                <div class="form-group">
-                    <label for="email">Email</label>
-                    <input type="email" id="email" required>
-                </div>
-                <div class="form-group">
-                    <label for="password">Şifre</label>
-                    <input type="password" id="password" required>
-                </div>
-                <button type="submit">Giriş Yap</button>
-                <p class="register-link">
-                    Hesabınız yok mu? <a href="#" id="showRegister">Kayıt Ol</a>
-                </p>
-            </form>
-        </div>
+    <div class="dashboard-container">
+        <header>
+            <h1>Cursor AI - Profesyonel Business Plan</h1>
+            <button id="logoutBtn">Çıkış Yap</button>
+        </header>
+        
+        <main class="product-card">
+            <h2>CURSOR AI - AYLIK PROFESYONEL BUSİNESS PLAN</h2>
+            <div class="price">850 TL</div>
+            
+            <h3>ÖZELLİKLERİ:</h3>
+            <ul class="features-list">
+                <li>✓ Limitsiz ChatGPT-O1 Model Kullanımı</li>
+                <li>✓ Limitsiz Claude 3.5 Sonnet Kullanımı</li>
+                <li>✓ Limitsiz Gemini Kullanımı</li>
+                <li>✓ Kendi CURSOR Hesabınızı Kullanırsınız</li>
+                <li>✓ Profesyonel Business Hesap</li>
+                <li>✓ 1 Aylık Sınırsız Proje ve Hızlı Fast Kullanım Modu</li>
+                <li>✓ 5000 request kapasitesi</li>
+                <li>✓ 10 hesap gücü kullanımı</li>
+                <li>✓ Gizlilik garantisi</li>
+                <li>✓ Uygun maliyet</li>
+            </ul>
+
+            <button class="buy-button">Hemen Satın Al</button>
+        </main>
     </div>
-    <script src="js/auth.js" type="module"></script>
+    <script src="js/dashboard.js" type="module"></script>
 </body>
 </html> 
