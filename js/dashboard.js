@@ -64,9 +64,14 @@ document.addEventListener('DOMContentLoaded', function() {
         queueMessage.style.display = 'none';
         chatInput.disabled = false;
         sendMessage.disabled = false;
+        connectSupport.style.display = 'none'; // Bağlan butonunu gizle
         
         // Hoşgeldin mesajını ekle
         addMessage("Merhaba! Size nasıl yardımcı olabilirim?", 'support');
+        
+        // Chat mesajlarını dinlemeye başla
+        const userId = firebase.auth().currentUser.uid;
+        listenForMessages(userId);
     }
 
     function addMessage(text, type) {
@@ -186,71 +191,95 @@ document.addEventListener('DOMContentLoaded', function() {
             const queueRef = firebase.database().ref('queue');
             const userId = firebase.auth().currentUser.uid;
             
-            queueRef.child(userId).set({
-                name: currentUserName,
-                email: firebase.auth().currentUser.email,
-                timestamp: Date.now()
-            });
+            // Önce mevcut durumu kontrol et
+            firebase.database().ref('supportStatus').once('value')
+                .then((snapshot) => {
+                    const status = snapshot.val() || {};
+                    
+                    if (!status.busy) {
+                        // Müşteri hizmetleri müsaitse direkt bağlan
+                        startChat();
+                        // Meşgul durumunu güncelle
+                        firebase.database().ref('supportStatus').update({
+                            busy: true,
+                            currentUser: userId
+                        });
+                    } else {
+                        // Sıraya ekle
+                        queueRef.child(userId).set({
+                            name: currentUserName,
+                            email: firebase.auth().currentUser.email,
+                            timestamp: Date.now()
+                        });
 
-            isInQueue = true;
-            connectSupport.textContent = 'Sıradasınız...';
-            connectSupport.disabled = true;
+                        isInQueue = true;
+                        connectSupport.textContent = 'Sıradasınız...';
+                        connectSupport.disabled = true;
+                        
+                        // Sıra durumunu dinle
+                        listenForQueue(userId);
+                    }
+                });
         }
     });
 
-    // Chat işlemleri
-    function startChat() {
-        queueMessage.style.display = 'none';
-        chatInput.disabled = false;
-        sendMessage.disabled = false;
+    // Sıra durumunu dinleme fonksiyonu
+    function listenForQueue(userId) {
+        const queueRef = firebase.database().ref('queue');
+        queueRef.on('value', (snapshot) => {
+            const queue = snapshot.val() || {};
+            const queueArray = Object.entries(queue);
+            
+            // Sıradaki pozisyonunu bul
+            const position = queueArray.findIndex(([key]) => key === userId) + 1;
+            
+            if (position > 0) {
+                connectSupport.textContent = `Sıra Pozisyonunuz: ${position}`;
+            } else {
+                // Kullanıcı sırada değilse ve supportStatus.currentUser bu kullanıcıysa
+                firebase.database().ref('supportStatus').once('value')
+                    .then((statusSnapshot) => {
+                        const status = statusSnapshot.val() || {};
+                        if (status.currentUser === userId) {
+                            startChat();
+                            queueRef.off(); // Dinlemeyi durdur
+                        }
+                    });
+            }
+        });
+    }
+
+    // Mesajları dinleme fonksiyonu
+    function listenForMessages(userId) {
+        const chatRef = firebase.database().ref('chats/' + userId);
+        chatRef.on('child_added', (snapshot) => {
+            const message = snapshot.val();
+            if (message.type !== 'user') { // Sadece karşı tarafın mesajlarını göster
+                addMessage(message.message, message.type);
+            }
+        });
+    }
+
+    // Chat sonlandığında
+    function endChat() {
+        const userId = firebase.auth().currentUser.uid;
         
-        // Hoşgeldin mesajını ekle
-        addMessage("Merhaba! Size nasıl yardımcı olabilirim?", 'support');
-    }
-
-    function sendChatMessage() {
-        const message = chatInput.value.trim();
-        if (message) {
-            const now = new Date();
-            const userId = firebase.auth().currentUser.uid;
-            
-            // Mesajı veritabanına kaydet
-            firebase.database().ref('chats/' + userId).push({
-                message: message,
-                timestamp: now.getTime(),
-                type: 'user',
-                userName: currentUserName,
-                userEmail: firebase.auth().currentUser.email
+        // Durumu güncelle
+        firebase.database().ref('supportStatus').update({
+            busy: false,
+            currentUser: null
+        });
+        
+        // Sıradan sonraki kullanıcıyı al
+        firebase.database().ref('queue').orderByChild('timestamp').limitToFirst(1).once('value')
+            .then((snapshot) => {
+                const nextInQueue = snapshot.val();
+                if (nextInQueue) {
+                    const nextUserId = Object.keys(nextInQueue)[0];
+                    // Sıradan çıkar
+                    firebase.database().ref('queue').child(nextUserId).remove();
+                }
             });
-
-            addMessage(message, 'user');
-            chatInput.value = '';
-        }
-    }
-
-    // Admin kontrolü
-    function checkIfAdmin() {
-        const user = firebase.auth().currentUser;
-        return user.email === 'cepyseo@outlook.com';
-    }
-
-    // Chat sonuçlandırma (sadece admin için)
-    function endChat(userId, status) {
-        if (checkIfAdmin()) {
-            const resultRef = firebase.database().ref('chatResults');
-            const userChatsRef = firebase.database().ref('chats/' + userId);
-            
-            userChatsRef.once('value').then((snapshot) => {
-                const chatData = snapshot.val();
-                resultRef.push({
-                    userId: userId,
-                    userEmail: chatData.userEmail,
-                    userName: chatData.userName,
-                    status: status,
-                    timestamp: Date.now()
-                });
-            });
-        }
     }
 
     updateQueueCount();
