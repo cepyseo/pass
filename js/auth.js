@@ -1,25 +1,8 @@
-import { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from './firebase-config.js';
-
-// Form geçişleri için
-const loginForm = document.getElementById('loginForm');
-const registerForm = document.getElementById('registerForm');
-const showRegisterLink = document.getElementById('showRegister');
-const showLoginLink = document.getElementById('showLogin');
-
-// Form geçiş fonksiyonları
-showRegisterLink.addEventListener('click', (e) => {
-    e.preventDefault();
-    loginForm.style.display = 'none';
-    registerForm.style.display = 'block';
-});
-
-showLoginLink.addEventListener('click', (e) => {
-    e.preventDefault();
-    registerForm.style.display = 'none';
-    loginForm.style.display = 'block';
-});
+import { auth, signInWithEmailAndPassword } from './firebase-config.js';
 
 // Giriş işlemi
+const loginForm = document.getElementById('loginForm');
+
 loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('loginEmail').value;
@@ -30,22 +13,6 @@ loginForm.addEventListener('submit', async (e) => {
         window.location.href = 'dashboard.html';
     } catch (error) {
         alert('Giriş hatası: ' + error.message);
-    }
-});
-
-// Kayıt işlemi
-registerForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('registerEmail').value;
-    const password = document.getElementById('registerPassword').value;
-
-    try {
-        await createUserWithEmailAndPassword(auth, email, password);
-        alert('Kayıt başarılı! Giriş yapabilirsiniz.');
-        registerForm.style.display = 'none';
-        loginForm.style.display = 'block';
-    } catch (error) {
-        alert('Kayıt hatası: ' + error.message);
     }
 });
 
