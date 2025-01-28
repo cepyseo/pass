@@ -755,94 +755,170 @@ button:hover::before {
 
 /* Admin Panel Styles */
 .admin-container {
+    position: fixed;
+    right: 20px;
+    top: 80px;
     background: var(--bg-card);
-    border-radius: 12px;
-    padding: 20px;
-    margin: 20px;
+    border-radius: 16px;
     border: 1px solid var(--border-color);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    width: 400px;
+    max-height: 80vh;
+    overflow-y: auto;
+    z-index: 1000;
 }
 
 .admin-panel {
-    width: 100%;
+    padding: 20px;
+}
+
+.admin-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.stat-item {
+    background: var(--bg-dark);
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    display: block;
+    margin-bottom: 5px;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    color: var(--primary-color);
+    font-weight: bold;
 }
 
 .admin-buttons {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
     gap: 10px;
     margin: 15px 0;
 }
 
-.admin-buttons button {
-    background: var(--primary-color);
-    color: var(--bg-dark);
-    border: none;
-    padding: 8px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 500;
-}
-
-.admin-content {
-    margin-top: 20px;
-    max-height: 500px;
-    overflow-y: auto;
-}
-
-.user-management, .queue-management {
+.admin-btn {
     background: var(--bg-dark);
-    border-radius: 8px;
-    padding: 15px;
-}
-
-.user-list, .queue-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.user-item, .queue-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px;
-    background: var(--bg-card);
-    border-radius: 6px;
-    border: 1px solid var(--border-color);
-}
-
-.user-info, .queue-info {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.user-name {
-    font-weight: 500;
     color: var(--text-primary);
-}
-
-.user-email {
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-}
-
-.queue-time {
-    font-size: 0.8rem;
-    color: var(--primary-color);
-}
-
-.user-actions, .queue-actions {
+    border: 1px solid var(--border-color);
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
     display: flex;
+    align-items: center;
+    justify-content: center;
     gap: 8px;
 }
 
-.ban-btn, .mute-btn, .remove-btn {
-    padding: 6px 12px;
-    border-radius: 4px;
+.admin-btn:hover {
+    background: var(--primary-color);
+    color: var(--bg-dark);
+}
+
+.admin-btn i {
+    font-size: 1.2rem;
+}
+
+/* Kullanıcı Listesi Geliştirmeleri */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.search-box {
+    display: flex;
+    gap: 10px;
+}
+
+.search-box input,
+.search-box select {
+    background: var(--bg-dark);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 8px;
+    border-radius: 6px;
+}
+
+.user-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    transition: all 0.3s ease;
+}
+
+.user-item:hover {
+    background: var(--bg-dark);
+    transform: translateX(5px);
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    background: var(--primary-color);
+    color: var(--bg-dark);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+.user-info {
+    flex: 1;
+}
+
+.user-status {
+    font-size: 0.8rem;
+    padding: 3px 8px;
+    border-radius: 12px;
+}
+
+.user-status.online {
+    background: #4CAF50;
+    color: white;
+}
+
+.user-status.offline {
+    background: #666;
+    color: white;
+}
+
+.user-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.user-actions button {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
     border: none;
     cursor: pointer;
-    font-size: 0.9rem;
-    transition: opacity 0.2s;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.detail-btn {
+    background: var(--primary-color);
+    color: var(--bg-dark);
 }
 
 .ban-btn {
@@ -856,93 +932,12 @@ button:hover::before {
 }
 
 .remove-btn {
-    background: #666666;
+    background: #666;
     color: white;
 }
 
-.ban-btn:hover, .mute-btn:hover, .remove-btn:hover {
-    opacity: 0.8;
-}
-
-/* User Info Panel */
-.user-info-panel {
-    background: var(--bg-card);
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 20px;
-    border: 1px solid var(--border-color);
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.user-details {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-
-.user-avatar {
-    width: 50px;
-    height: 50px;
-    background: var(--primary-color);
-    color: var(--bg-dark);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    font-size: 1.2rem;
-}
-
-.user-info h4 {
-    margin: 0;
-    color: var(--text-primary);
-}
-
-.user-info p {
-    margin: 5px 0;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-}
-
-.connection-status {
-    display: inline-block;
-    padding: 4px 8px;
-    border-radius: 12px;
-    font-size: 0.8rem;
-    margin-top: 5px;
-}
-
-.connection-status.online {
-    background: var(--primary-color);
-    color: var(--bg-dark);
-}
-
-.connection-status.offline {
-    background: #ff4444;
-    color: white;
-}
-
-.admin-controls {
-    margin-top: 15px;
-    display: flex;
-    gap: 10px;
-}
-
-.admin-controls button {
-    background: var(--primary-color);
-    color: var(--bg-dark);
-    border: none;
-    padding: 8px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.admin-controls button:hover {
-    background: var(--primary-hover);
-}
-
-.admin-modal {
+/* Modal Stilleri */
+.modal {
     position: fixed;
     top: 0;
     left: 0;
@@ -952,17 +947,21 @@ button:hover::before {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    z-index: 2000;
 }
 
 .modal-content {
     background: var(--bg-card);
-    padding: 20px;
-    border-radius: 12px;
+    padding: 30px;
+    border-radius: 16px;
     width: 90%;
-    max-width: 600px;
-    max-height: 80vh;
-    overflow-y: auto;
+    max-width: 500px;
+}
+
+.user-details {
+    margin: 20px 0;
+    display: grid;
+    gap: 10px;
 }
 
 /* Queue ve User list stilleri */

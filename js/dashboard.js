@@ -707,9 +707,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeUserManagement();
 });
 
-// Admin paneli ve kullanıcı yönetimi için fonksiyonlar
+// Admin paneli ve kullanıcı yönetimi için gelişmiş fonksiyonlar
 function initializeAdminPanel() {
-    // Admin kontrolü
     firebase.auth().onAuthStateChanged((user) => {
         if (user && user.email === 'cepyseo@outlook.com') {
             isAdmin = true;
@@ -717,20 +716,68 @@ function initializeAdminPanel() {
             adminContainer.className = 'admin-container';
             adminContainer.innerHTML = `
                 <div class="admin-panel">
-                    <h3>Admin Paneli</h3>
+                    <h3>Admin Kontrol Paneli</h3>
+                    <div class="admin-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Online Kullanıcılar</span>
+                            <span class="stat-value" id="onlineUsersCount">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Bekleyen Kullanıcılar</span>
+                            <span class="stat-value" id="queueCount">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Toplam Görüşme</span>
+                            <span class="stat-value" id="totalChats">0</span>
+                        </div>
+                    </div>
                     <div class="admin-buttons">
-                        <button onclick="toggleUserList()">Kullanıcıları Görüntüle</button>
-                        <button onclick="toggleQueueList()">Sıra Yönetimi</button>
+                        <button onclick="toggleUserList()" class="admin-btn">
+                            <i class="fas fa-users"></i> Kullanıcılar
+                        </button>
+                        <button onclick="toggleQueueList()" class="admin-btn">
+                            <i class="fas fa-list"></i> Sıra Yönetimi
+                        </button>
+                        <button onclick="showChatHistory()" class="admin-btn">
+                            <i class="fas fa-history"></i> Görüşme Geçmişi
+                        </button>
+                        <button onclick="toggleSystemStatus()" class="admin-btn">
+                            <i class="fas fa-cog"></i> Sistem Durumu
+                        </button>
                     </div>
                     <div id="adminContent" class="admin-content"></div>
                 </div>
             `;
             document.querySelector('.dashboard-container').appendChild(adminContainer);
+            initializeAdminStats();
         }
     });
 }
 
-// Kullanıcı listesi görüntüleme
+// Admin istatistiklerini güncelle
+function initializeAdminStats() {
+    const statsRef = firebase.database().ref('statistics');
+    
+    // Online kullanıcı sayısını takip et
+    firebase.database().ref('status').on('value', (snapshot) => {
+        const users = snapshot.val() || {};
+        const onlineCount = Object.values(users).filter(user => user.online).length;
+        document.getElementById('onlineUsersCount').textContent = onlineCount;
+    });
+
+    // Sıradaki kullanıcı sayısını takip et
+    firebase.database().ref('queue').on('value', (snapshot) => {
+        const queue = snapshot.val() || {};
+        document.getElementById('queueCount').textContent = Object.keys(queue).length;
+    });
+
+    // Toplam görüşme sayısını takip et
+    statsRef.child('totalChats').on('value', (snapshot) => {
+        document.getElementById('totalChats').textContent = snapshot.val() || 0;
+    });
+}
+
+// Kullanıcı listesi görüntüleme geliştirmesi
 window.toggleUserList = function() {
     const adminContent = document.getElementById('adminContent');
     
@@ -739,20 +786,47 @@ window.toggleUserList = function() {
             const users = snapshot.val() || {};
             let html = `
                 <div class="user-management">
-                    <h4>Kullanıcı Listesi</h4>
+                    <div class="section-header">
+                        <h4>Kullanıcı Yönetimi</h4>
+                        <div class="search-box">
+                            <input type="text" id="userSearch" placeholder="Kullanıcı ara...">
+                            <select id="userFilter">
+                                <option value="all">Tümü</option>
+                                <option value="online">Çevrimiçi</option>
+                                <option value="offline">Çevrimdışı</option>
+                                <option value="banned">Engellenenler</option>
+                            </select>
+                        </div>
+                    </div>
                     <div class="user-list">
             `;
             
             Object.entries(users).forEach(([uid, user]) => {
                 html += `
-                    <div class="user-item">
+                    <div class="user-item" data-uid="${uid}">
+                        <div class="user-avatar">
+                            ${user.name[0]}${user.surname[0]}
+                        </div>
                         <div class="user-info">
                             <span class="user-name">${user.name} ${user.surname}</span>
                             <span class="user-email">${user.email}</span>
+                            <span class="user-status ${user.online ? 'online' : 'offline'}">
+                                ${user.online ? 'Çevrimiçi' : 'Çevrimdışı'}
+                            </span>
                         </div>
                         <div class="user-actions">
-                            <button onclick="banUser('${uid}')" class="ban-btn">Engelle</button>
-                            <button onclick="muteUser('${uid}')" class="mute-btn">Sustur</button>
+                            <button onclick="viewUserDetails('${uid}')" class="detail-btn">
+                                <i class="fas fa-info-circle"></i>
+                            </button>
+                            <button onclick="banUser('${uid}')" class="ban-btn">
+                                <i class="fas fa-ban"></i>
+                            </button>
+                            <button onclick="muteUser('${uid}')" class="mute-btn">
+                                <i class="fas fa-microphone-slash"></i>
+                            </button>
+                            <button onclick="removeFromQueue('${uid}')" class="remove-btn">
+                                <i class="fas fa-times"></i>
+                            </button>
                         </div>
                     </div>
                 `;
@@ -760,6 +834,62 @@ window.toggleUserList = function() {
             
             html += `</div></div>`;
             adminContent.innerHTML = html;
+            
+            // Arama ve filtreleme işlevselliğini ekle
+            initializeUserSearch();
+        });
+};
+
+// Kullanıcı arama ve filtreleme
+function initializeUserSearch() {
+    const searchInput = document.getElementById('userSearch');
+    const filterSelect = document.getElementById('userFilter');
+    const userItems = document.querySelectorAll('.user-item');
+
+    function filterUsers() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const filterValue = filterSelect.value;
+
+        userItems.forEach(item => {
+            const userName = item.querySelector('.user-name').textContent.toLowerCase();
+            const userEmail = item.querySelector('.user-email').textContent.toLowerCase();
+            const userStatus = item.querySelector('.user-status').classList.contains('online');
+            
+            let showUser = (userName.includes(searchTerm) || userEmail.includes(searchTerm));
+            
+            if (filterValue === 'online') showUser = showUser && userStatus;
+            if (filterValue === 'offline') showUser = showUser && !userStatus;
+            
+            item.style.display = showUser ? 'flex' : 'none';
+        });
+    }
+
+    searchInput.addEventListener('input', filterUsers);
+    filterSelect.addEventListener('change', filterUsers);
+}
+
+// Kullanıcı detaylarını görüntüleme
+window.viewUserDetails = function(uid) {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    
+    firebase.database().ref(`users/${uid}`).once('value')
+        .then((snapshot) => {
+            const user = snapshot.val();
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <h3>Kullanıcı Detayları</h3>
+                    <div class="user-details">
+                        <p><strong>Ad Soyad:</strong> ${user.name} ${user.surname}</p>
+                        <p><strong>Email:</strong> ${user.email}</p>
+                        <p><strong>Kayıt Tarihi:</strong> ${new Date(user.createdAt).toLocaleString()}</p>
+                        <p><strong>Son Görülme:</strong> ${new Date(user.lastSeen).toLocaleString()}</p>
+                        <p><strong>Toplam Görüşme:</strong> ${user.totalChats || 0}</p>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove()">Kapat</button>
+                </div>
+            `;
+            document.body.appendChild(modal);
         });
 };
 
