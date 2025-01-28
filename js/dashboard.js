@@ -549,6 +549,29 @@ function initializeAdminPanel() {
         adminPanel.innerHTML = `
             <div class="admin-header">
                 <h3>Admin Paneli</h3>
+                <div class="admin-stats">
+                    <div class="stat-item">
+                        <i class="fas fa-users"></i>
+                        <div class="stat-info">
+                            <span id="onlineUsersCount">0</span>
+                            <label>Online</label>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-clock"></i>
+                        <div class="stat-info">
+                            <span id="queueCount">0</span>
+                            <label>Sırada</label>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-comments"></i>
+                        <div class="stat-info">
+                            <span id="totalChats">0</span>
+                            <label>Görüşme</label>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="admin-buttons">
                 <button onclick="toggleUserList()" class="admin-btn">
@@ -565,151 +588,8 @@ function initializeAdminPanel() {
         const mainContent = document.querySelector('.main-content') || document.body;
         mainContent.insertBefore(adminPanel, mainContent.firstChild);
 
-        // CSS ekle
-        const adminStyles = `
-            .admin-panel {
-                background: #fff;
-                border-radius: 8px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                margin: 20px;
-                padding: 20px;
-            }
-
-            .admin-header {
-                border-bottom: 1px solid #eee;
-                margin-bottom: 20px;
-                padding-bottom: 10px;
-            }
-
-            .admin-header h3 {
-                color: #333;
-                margin: 0;
-            }
-
-            .admin-buttons {
-                display: flex;
-                gap: 10px;
-                margin-bottom: 20px;
-            }
-
-            .admin-btn {
-                background: #007bff;
-                border: none;
-                border-radius: 4px;
-                color: white;
-                cursor: pointer;
-                padding: 10px 20px;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                transition: background 0.3s;
-            }
-
-            .admin-btn:hover {
-                background: #0056b3;
-            }
-
-            .admin-content {
-                background: #f8f9fa;
-                border-radius: 4px;
-                padding: 20px;
-                min-height: 200px;
-            }
-
-            .user-list, .queue-list {
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-            }
-
-            .user-item, .queue-item {
-                background: white;
-                border-radius: 4px;
-                padding: 15px;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            }
-
-            .user-info, .queue-user-info {
-                flex: 1;
-            }
-
-            .user-actions, .queue-actions {
-                display: flex;
-                gap: 8px;
-            }
-
-            .start-chat-btn {
-                background: #28a745;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 8px 16px;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                gap: 5px;
-            }
-
-            .start-chat-btn:hover {
-                background: #218838;
-            }
-
-            .remove-btn, .ban-btn {
-                width: 32px;
-                height: 32px;
-                border-radius: 50%;
-                border: none;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: white;
-            }
-
-            .remove-btn {
-                background: #dc3545;
-            }
-
-            .ban-btn {
-                background: #6c757d;
-            }
-
-            .search-box {
-                margin-bottom: 15px;
-            }
-
-            .search-box input {
-                width: 100%;
-                padding: 10px;
-                border: 1px solid #ddd;
-                border-radius: 4px;
-            }
-
-            .user-status {
-                display: inline-block;
-                padding: 3px 8px;
-                border-radius: 12px;
-                font-size: 12px;
-                margin-left: 10px;
-            }
-
-            .user-status.online {
-                background: #28a745;
-                color: white;
-            }
-
-            .user-status.offline {
-                background: #dc3545;
-                color: white;
-            }
-        `;
-
-        const styleElement = document.createElement('style');
-        styleElement.textContent = adminStyles;
-        document.head.appendChild(styleElement);
+        // Analitikleri başlat
+        initializeAnalytics();
 
         // İlk olarak kullanıcı listesini göster
         toggleUserList();
@@ -1347,3 +1227,67 @@ const adminStyles = `
 const adminStyleElement = document.createElement('style');
 adminStyleElement.textContent = adminStyles;
 document.head.appendChild(adminStyleElement);
+
+// Admin analitik fonksiyonları
+function initializeAnalytics() {
+    if (!isAdmin) return;
+
+    // Analitik verilerini güncelle
+    updateAnalytics();
+    
+    // Her 30 saniyede bir güncelle
+    setInterval(updateAnalytics, 30000);
+}
+
+// Analitik verilerini güncelle
+async function updateAnalytics() {
+    try {
+        // Toplam kullanıcı sayısı
+        const usersSnapshot = await firebase.database().ref('users').once('value');
+        const totalUsers = Object.keys(usersSnapshot.val() || {}).length;
+
+        // Online kullanıcı sayısı
+        const statusSnapshot = await firebase.database().ref('status').once('value');
+        const onlineUsers = Object.values(statusSnapshot.val() || {})
+            .filter(status => status.online).length;
+
+        // Sıradaki kullanıcı sayısı
+        const queueSnapshot = await firebase.database().ref('queue').once('value');
+        const queueLength = Object.keys(queueSnapshot.val() || {}).length;
+
+        // Toplam görüşme sayısı
+        const chatsSnapshot = await firebase.database().ref('chats').once('value');
+        const totalChats = Object.keys(chatsSnapshot.val() || {}).length;
+
+        // İstatistikleri güncelle
+        const stats = {
+            totalUsers,
+            onlineUsers,
+            queueLength,
+            totalChats
+        };
+
+        // Admin panelindeki istatistikleri güncelle
+        updateAdminStatsDisplay(stats);
+
+    } catch (error) {
+        console.error('Analitik güncelleme hatası:', error);
+    }
+}
+
+// Admin panel istatistiklerini güncelle
+function updateAdminStatsDisplay(stats) {
+    const elements = {
+        totalUsers: document.getElementById('totalUsersCount'),
+        onlineUsers: document.getElementById('onlineUsersCount'),
+        queueLength: document.getElementById('queueCount'),
+        totalChats: document.getElementById('totalChats')
+    };
+
+    // Her bir istatistiği güncelle
+    Object.entries(elements).forEach(([key, element]) => {
+        if (element && stats[key] !== undefined) {
+            element.textContent = stats[key];
+        }
+    });
+}
