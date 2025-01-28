@@ -7,14 +7,13 @@ auth.onAuthStateChanged((user) => {
 
 // Çıkış yapma işlemi
 const logoutBtn = document.getElementById('logoutBtn');
-logoutBtn.addEventListener('click', () => {
-    auth.signOut()
-        .then(() => {
-            window.location.href = 'index.html';
-        })
-        .catch((error) => {
-            alert('Çıkış hatası: ' + error.message);
-        });
+logoutBtn.addEventListener('click', async () => {
+    try {
+        await signOut(auth);
+        window.location.href = 'index.html';
+    } catch (error) {
+        alert('Çıkış hatası: ' + error.message);
+    }
 });
 
 // Satın alma butonu işlemi
