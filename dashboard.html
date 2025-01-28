@@ -9,37 +9,33 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
 </head>
-<body>
+<body class="dark-theme">
     <div class="dashboard-container">
         <header class="main-header">
             <div class="header-content">
-                <h1>Cursor AI - Business Plan</h1>
+                <h1>ClonicPass</h1>
                 <button id="logoutBtn">Çıkış Yap</button>
             </div>
         </header>
-        
-        <div class="pricing-header">
-            <h2>Profesyonel Business Planınızı Seçin</h2>
-            <p class="subtitle">Size en uygun planı seçin</p>
-        </div>
 
         <div class="pricing-container">
-            <div class="pricing-card business">
+            <div class="pricing-card">
                 <div class="card-header">
-                    <h3>Business</h3>
+                    <h2>Business</h2>
                     <div class="price-container">
-                        <span class="price">850 TL</span>
-                        <span class="period">/aylık</span>
+                        <span class="price">$40</span>
+                        <span class="period">/user/month</span>
                     </div>
                     <div class="compare-price">
-                        <span class="original-price">Normal Fiyat: 1430 TL (40$)</span>
-                        <span class="save-text">%40 İndirim!</span>
+                        <span class="original-price">Normal: 1430 TL</span>
+                        <span class="current-price">İndirimli: 850 TL</span>
                     </div>
                 </div>
 
-                <div class="features">
-                    <h4>Özellikler</h4>
-                    <ul>
+                <div class="card-content">
+                    <p class="plan-description">Everything in Pro, plus</p>
+                    
+                    <ul class="features-list">
                         <li>
                             <span class="check">✓</span>
                             <span class="feature-text">Limitsiz ChatGPT-O1 Model Kullanımı</span>
@@ -54,10 +50,6 @@
                         </li>
                         <li>
                             <span class="check">✓</span>
-                            <span class="feature-text">Kendi CURSOR Hesabınızı Kullanırsınız</span>
-                        </li>
-                        <li>
-                            <span class="check">✓</span>
                             <span class="feature-text">5000 Request Kapasitesi</span>
                         </li>
                         <li>
@@ -68,22 +60,9 @@
                             <span class="check">✓</span>
                             <span class="feature-text">Gizlilik Garantisi</span>
                         </li>
-                        <li>
-                            <span class="check">✓</span>
-                            <span class="feature-text">7/24 Destek</span>
-                        </li>
                     </ul>
-                </div>
 
-                <button class="buy-button">Hemen Satın Al</button>
-
-                <div class="additional-info">
-                    <div class="info-box">
-                        <h4>Özel Avantajlar</h4>
-                        <p>✦ Sizin özel hesabınıza gönderilen davet linki ile ekip üyesi olarak Limitsiz Kullanım İmkanı</p>
-                        <p>✦ Cursor business paketini kullanın, hiçbir kota sorunu yaşamayın</p>
-                        <p>✦ Sayısız referans ile güvenilir hizmet</p>
-                    </div>
+                    <button class="buy-button">HEMEN SATIN AL</button>
                 </div>
             </div>
         </div>
