@@ -798,4 +798,179 @@ button:hover::before {
     color: white;
     border: none;
     cursor: pointer;
+}
+
+/* User Info Panel */
+.user-info-panel {
+    background: var(--bg-card);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.user-details {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.user-avatar {
+    width: 50px;
+    height: 50px;
+    background: var(--primary-color);
+    color: var(--bg-dark);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+.user-info h4 {
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.user-info p {
+    margin: 5px 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.connection-status {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    margin-top: 5px;
+}
+
+.connection-status.online {
+    background: var(--primary-color);
+    color: var(--bg-dark);
+}
+
+.connection-status.offline {
+    background: #ff4444;
+    color: white;
+}
+
+.admin-controls {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+}
+
+.admin-controls button {
+    background: var(--primary-color);
+    color: var(--bg-dark);
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.admin-controls button:hover {
+    background: var(--primary-hover);
+}
+
+.admin-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: var(--bg-card);
+    padding: 20px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+/* Queue ve User list stilleri */
+.queue-list, .user-list {
+    margin-top: 15px;
+}
+
+.queue-item, .user-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.queue-info, .user-info {
+    flex: 1;
+}
+
+.queue-actions, .user-actions {
+    display: flex;
+    gap: 10px;
+}
+
+/* Queue Info */
+.queue-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.position {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.time {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+/* Typing Indicator */
+.typing-indicator {
+    padding: 10px;
+    display: none;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+/* Message Timestamp */
+.message-time {
+    font-size: 0.7rem;
+    opacity: 0.7;
+    margin-top: 5px;
+}
+
+/* Enhanced Chat Input */
+.chat-input-area {
+    position: relative;
+}
+
+#chatInput {
+    resize: none;
+    min-height: 50px;
+    padding-right: 100px;
+}
+
+#sendMessage {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    width: auto;
 } 

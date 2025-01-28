@@ -438,4 +438,138 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
     }
+});
+
+// Müşteri hizmetleri için yeni fonksiyonlar
+function initializeCustomerSupport() {
+    const chatContainer = document.querySelector('.chat-container');
+    const userInfoPanel = document.createElement('div');
+    userInfoPanel.className = 'user-info-panel';
+    
+    // Kullanıcı bilgileri paneli
+    function updateUserInfoPanel() {
+        userInfoPanel.innerHTML = `
+            <div class="user-details">
+                <div class="user-avatar">${userInfo.name[0]}${userInfo.surname[0]}</div>
+                <div class="user-info">
+                    <h4>${userInfo.name} ${userInfo.surname}</h4>
+                    <p>${userInfo.email}</p>
+                    <span class="connection-status ${isOnline ? 'online' : 'offline'}">
+                        ${isOnline ? 'Çevrimiçi' : 'Çevrimdışı'}
+                    </span>
+                </div>
+            </div>
+            ${isAdmin ? `
+                <div class="admin-controls">
+                    <button onclick="showQueueManagement()">Sıra Yönetimi</button>
+                    <button onclick="showUserManagement()">Kullanıcı Yönetimi</button>
+                    <button onclick="showChatHistory()">Sohbet Geçmişi</button>
+                </div>
+            ` : ''}
+        `;
+    }
+
+    // İnternet bağlantısı kontrolü
+    function checkConnection() {
+        const updateOnlineStatus = () => {
+            isOnline = navigator.onLine;
+            updateUserInfoPanel();
+            
+            if (!isOnline && isInQueue) {
+                removeFromQueue(firebase.auth().currentUser.uid);
+            }
+        };
+
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
+    }
+
+    // Sıra yönetimi geliştirmeleri
+    function initializeQueueSystem() {
+        const queueRef = firebase.database().ref('queue');
+        
+        // LocalStorage'dan sıra pozisyonunu kontrol et
+        const savedQueuePosition = localStorage.getItem('queuePosition');
+        if (savedQueuePosition) {
+            const position = JSON.parse(savedQueuePosition);
+            if (position.timestamp > Date.now() - 3600000) { // 1 saat geçerli
+                addToQueue(position.userId, position.timestamp);
+            } else {
+                localStorage.removeItem('queuePosition');
+            }
+        }
+
+        // Sıra değişikliklerini dinle
+        queueRef.on('value', (snapshot) => {
+            const queue = snapshot.val() || {};
+            const onlineUsers = Object.entries(queue).filter(([_, data]) => {
+                return data.online === true;
+            });
+            
+            onlineUsersCount.textContent = onlineUsers.length;
+            
+            // Sıra pozisyonunu güncelle
+            if (isInQueue) {
+                const position = onlineUsers.findIndex(([key]) => key === firebase.auth().currentUser.uid) + 1;
+                updateQueuePosition(position);
+            }
+        });
+    }
+
+    // Admin fonksiyonları
+    if (isAdmin) {
+        function showQueueManagement() {
+            const modal = document.createElement('div');
+            modal.className = 'admin-modal';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <h3>Sıra Yönetimi</h3>
+                    <div class="queue-list"></div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            // Sıradaki kullanıcıları listele
+            updateQueueList();
+        }
+
+        function showUserManagement() {
+            // Kullanıcı yönetimi modalı
+            const modal = document.createElement('div');
+            modal.className = 'admin-modal';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <h3>Kullanıcı Yönetimi</h3>
+                    <div class="user-list"></div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            // Kullanıcıları listele
+            updateUserList();
+        }
+
+        // Admin işlemleri
+        function banUser(uid) {
+            firebase.database().ref(`bannedUsers/${uid}`).set(true);
+            removeFromQueue(uid);
+            alert('Kullanıcı engellendi.');
+        }
+
+        function muteUser(uid) {
+            firebase.database().ref(`mutedUsers/${uid}`).set(true);
+            alert('Kullanıcı susturuldu.');
+        }
+    }
+
+    // Initialize
+    updateUserInfoPanel();
+    checkConnection();
+    initializeQueueSystem();
+    chatContainer.insertBefore(userInfoPanel, chatContainer.firstChild);
+}
+
+// Sayfanın yüklenmesi tamamlandığında başlat
+document.addEventListener('DOMContentLoaded', () => {
+    initializeCustomerSupport();
 }); 
