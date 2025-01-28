@@ -116,4 +116,27 @@ header {
 #logoutBtn {
     width: auto;
     padding: 8px 20px;
+}
+
+/* Form geçiş stilleri */
+#loginForm, #registerForm {
+    transition: all 0.3s ease;
+}
+
+#loginForm.active, #registerForm.active {
+    display: block;
+}
+
+.register-link, .login-link {
+    text-align: center;
+    margin-top: 15px;
+}
+
+.register-link a, .login-link a {
+    color: #1a73e8;
+    text-decoration: none;
+}
+
+.register-link a:hover, .login-link a:hover {
+    text-decoration: underline;
 } 
