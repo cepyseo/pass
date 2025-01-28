@@ -705,4 +705,105 @@ window.removeFromQueue = function(uid) {
 // Sayfa yüklendiğinde başlat
 document.addEventListener('DOMContentLoaded', () => {
     initializeUserManagement();
+});
+
+// Admin paneli ve kullanıcı yönetimi için fonksiyonlar
+function initializeAdminPanel() {
+    // Admin kontrolü
+    firebase.auth().onAuthStateChanged((user) => {
+        if (user && user.email === 'cepyseo@outlook.com') {
+            isAdmin = true;
+            const adminContainer = document.createElement('div');
+            adminContainer.className = 'admin-container';
+            adminContainer.innerHTML = `
+                <div class="admin-panel">
+                    <h3>Admin Paneli</h3>
+                    <div class="admin-buttons">
+                        <button onclick="toggleUserList()">Kullanıcıları Görüntüle</button>
+                        <button onclick="toggleQueueList()">Sıra Yönetimi</button>
+                    </div>
+                    <div id="adminContent" class="admin-content"></div>
+                </div>
+            `;
+            document.querySelector('.dashboard-container').appendChild(adminContainer);
+        }
+    });
+}
+
+// Kullanıcı listesi görüntüleme
+window.toggleUserList = function() {
+    const adminContent = document.getElementById('adminContent');
+    
+    firebase.database().ref('users').once('value')
+        .then((snapshot) => {
+            const users = snapshot.val() || {};
+            let html = `
+                <div class="user-management">
+                    <h4>Kullanıcı Listesi</h4>
+                    <div class="user-list">
+            `;
+            
+            Object.entries(users).forEach(([uid, user]) => {
+                html += `
+                    <div class="user-item">
+                        <div class="user-info">
+                            <span class="user-name">${user.name} ${user.surname}</span>
+                            <span class="user-email">${user.email}</span>
+                        </div>
+                        <div class="user-actions">
+                            <button onclick="banUser('${uid}')" class="ban-btn">Engelle</button>
+                            <button onclick="muteUser('${uid}')" class="mute-btn">Sustur</button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `</div></div>`;
+            adminContent.innerHTML = html;
+        });
+};
+
+// Sıra yönetimi görüntüleme
+window.toggleQueueList = function() {
+    const adminContent = document.getElementById('adminContent');
+    
+    firebase.database().ref('queue').once('value')
+        .then((snapshot) => {
+            const queue = snapshot.val() || {};
+            let html = `
+                <div class="queue-management">
+                    <h4>Sıradaki Kullanıcılar</h4>
+                    <div class="queue-list">
+            `;
+            
+            Object.entries(queue).forEach(([uid, queueData]) => {
+                html += `
+                    <div class="queue-item">
+                        <div class="queue-info">
+                            <span class="user-name">${queueData.name}</span>
+                            <span class="user-email">${queueData.email}</span>
+                            <span class="queue-time">Bekleme: ${formatWaitingTime(Date.now() - queueData.timestamp)}</span>
+                        </div>
+                        <div class="queue-actions">
+                            <button onclick="removeFromQueue('${uid}')" class="remove-btn">Sıradan Çıkar</button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `</div></div>`;
+            adminContent.innerHTML = html;
+        });
+};
+
+// Bekleme süresini formatla
+function formatWaitingTime(ms) {
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    return `${minutes}dk ${seconds}sn`;
+}
+
+// Sayfa yüklendiğinde admin panelini başlat
+document.addEventListener('DOMContentLoaded', () => {
+    initializeAdminPanel();
 }); 

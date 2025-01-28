@@ -754,50 +754,114 @@ button:hover::before {
 }
 
 /* Admin Panel Styles */
-.admin-panel {
-    position: fixed;
-    right: 20px;
-    top: 80px;
+.admin-container {
     background: var(--bg-card);
-    padding: 20px;
     border-radius: 12px;
+    padding: 20px;
+    margin: 20px;
     border: 1px solid var(--border-color);
-    max-width: 300px;
-    z-index: 1000;
 }
 
-.admin-controls button {
+.admin-panel {
+    width: 100%;
+}
+
+.admin-buttons {
+    display: flex;
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.admin-buttons button {
     background: var(--primary-color);
     color: var(--bg-dark);
     border: none;
     padding: 8px 16px;
     border-radius: 6px;
-    margin: 5px;
     cursor: pointer;
+    font-weight: 500;
 }
 
-.user-list {
-    margin-top: 15px;
-    max-height: 400px;
+.admin-content {
+    margin-top: 20px;
+    max-height: 500px;
     overflow-y: auto;
+}
+
+.user-management, .queue-management {
+    background: var(--bg-dark);
+    border-radius: 8px;
+    padding: 15px;
+}
+
+.user-list, .queue-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 .user-item, .queue-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px;
-    border-bottom: 1px solid var(--border-color);
+    padding: 12px;
+    background: var(--bg-card);
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
 }
 
-.user-item button, .queue-item button {
-    padding: 4px 8px;
-    margin-left: 5px;
+.user-info, .queue-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.user-name {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.user-email {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.queue-time {
+    font-size: 0.8rem;
+    color: var(--primary-color);
+}
+
+.user-actions, .queue-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.ban-btn, .mute-btn, .remove-btn {
+    padding: 6px 12px;
     border-radius: 4px;
-    background: #ff4444;
-    color: white;
     border: none;
     cursor: pointer;
+    font-size: 0.9rem;
+    transition: opacity 0.2s;
+}
+
+.ban-btn {
+    background: #ff4444;
+    color: white;
+}
+
+.mute-btn {
+    background: #ffbb33;
+    color: var(--bg-dark);
+}
+
+.remove-btn {
+    background: #666666;
+    color: white;
+}
+
+.ban-btn:hover, .mute-btn:hover, .remove-btn:hover {
+    opacity: 0.8;
 }
 
 /* User Info Panel */
