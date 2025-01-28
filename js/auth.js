@@ -4,46 +4,16 @@ const loginForm = document.getElementById('loginForm');
 if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const email = document.getElementById('loginEmail').value;
+        
+        // Form verilerini al
+        const email = document.getElementById('loginEmail').value.trim();
         const password = document.getElementById('loginPassword').value;
 
-        try {
-            const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
-            if (userCredential.user) {
-                console.log("Giriş başarılı, yönlendiriliyor...");
-                window.location.href = 'dashboard.html';
-            }
-        } catch (error) {
-            console.error("Giriş hatası:", error);
-            let errorMessage = '';
-            
-            switch (error.code) {
-                case 'auth/invalid-email':
-                    errorMessage = 'Geçersiz email adresi.';
-                    break;
-                case 'auth/user-disabled':
-                    errorMessage = 'Bu hesap devre dışı bırakılmış.';
-                    break;
-                case 'auth/user-not-found':
-                    errorMessage = 'Bu email adresi ile kayıtlı kullanıcı bulunamadı.';
-                    break;
-                case 'auth/wrong-password':
-                    errorMessage = 'Yanlış şifre.';
-                    break;
-                case 'auth/invalid-login-credentials':
-                    errorMessage = 'Email veya şifre hatalı.';
-                    break;
-                default:
-                    errorMessage = 'Giriş yapılırken bir hata oluştu. Lütfen tekrar deneyin.';
-            }
-            
-            // Hata mesajını göster
+        // Hata mesajı gösterme fonksiyonu
+        const showError = (message) => {
             const errorDiv = document.createElement('div');
             errorDiv.className = 'error-message';
-            errorDiv.style.color = '#ff4444';
-            errorDiv.style.marginTop = '10px';
-            errorDiv.style.textAlign = 'center';
-            errorDiv.textContent = errorMessage;
+            errorDiv.textContent = message;
 
             // Varsa eski hata mesajını kaldır
             const oldError = loginForm.querySelector('.error-message');
@@ -66,6 +36,59 @@ if (loginForm) {
                 emailInput.classList.remove('error');
                 passwordInput.classList.remove('error');
             }, 5000);
+        };
+
+        // Basit validasyon
+        if (!email || !password) {
+            showError('Email ve şifre alanları boş bırakılamaz.');
+            return;
+        }
+
+        // Email formatı kontrolü
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            showError('Geçerli bir email adresi giriniz.');
+            return;
+        }
+
+        try {
+            // Firebase ile giriş denemesi
+            const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
+            if (userCredential.user) {
+                console.log("Giriş başarılı!");
+                window.location.href = 'dashboard.html';
+            }
+        } catch (error) {
+            console.error("Giriş hatası:", error);
+            
+            // Hata mesajlarını Türkçeleştir
+            let errorMessage;
+            switch (error.code) {
+                case 'auth/invalid-email':
+                    errorMessage = 'Geçersiz email formatı.';
+                    break;
+                case 'auth/user-disabled':
+                    errorMessage = 'Bu hesap devre dışı bırakılmış.';
+                    break;
+                case 'auth/user-not-found':
+                    errorMessage = 'Bu email ile kayıtlı kullanıcı bulunamadı.';
+                    break;
+                case 'auth/wrong-password':
+                    errorMessage = 'Hatalı şifre.';
+                    break;
+                case 'auth/invalid-login-credentials':
+                    errorMessage = 'Email veya şifre hatalı. Lütfen bilgilerinizi kontrol edin.';
+                    break;
+                case 'auth/too-many-requests':
+                    errorMessage = 'Çok fazla başarısız giriş denemesi. Lütfen daha sonra tekrar deneyin.';
+                    break;
+                case 'auth/network-request-failed':
+                    errorMessage = 'Ağ bağlantısı hatası. İnternet bağlantınızı kontrol edin.';
+                    break;
+                default:
+                    errorMessage = 'Giriş yapılırken bir hata oluştu. Lütfen tekrar deneyin.';
+            }
+            showError(errorMessage);
         }
     });
 }

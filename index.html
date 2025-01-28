@@ -43,7 +43,11 @@
             appId: "1:83234032898:web:d145adfa9ebd6cd1fc861b",
             measurementId: "G-TJ15WL5ZR7"
         };
-        firebase.initializeApp(firebaseConfig);
+
+        // Firebase'i başlat
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
     </script>
     <script src="js/auth.js"></script>
 </body>
