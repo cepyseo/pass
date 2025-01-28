@@ -537,34 +537,35 @@ function initializeAdminPanel() {
     if (user && user.email === 'cepyseo@outlook.com') {
         isAdmin = true;
         
-        // Önce mevcut admin panelini temizle
-        const existingPanel = document.querySelector('.admin-panel');
-        if (existingPanel) {
-            existingPanel.remove();
-        }
-
         // Admin panelini oluştur
         const adminPanel = document.createElement('div');
         adminPanel.className = 'admin-panel';
         adminPanel.innerHTML = `
             <div class="admin-header">
-                <h3>Admin Paneli</h3>
+                <h3>Admin Kontrol Paneli</h3>
                 <div class="admin-stats">
-                    <div class="stat-item">
+                    <div class="stat-card">
                         <i class="fas fa-users"></i>
                         <div class="stat-info">
-                            <span id="onlineUsersCount">0</span>
-                            <label>Online</label>
+                            <span id="totalUsersCount">0</span>
+                            <label>Toplam Kullanıcı</label>
                         </div>
                     </div>
-                    <div class="stat-item">
+                    <div class="stat-card">
+                        <i class="fas fa-circle"></i>
+                        <div class="stat-info">
+                            <span id="onlineUsersCount">0</span>
+                            <label>Çevrimiçi</label>
+                        </div>
+                    </div>
+                    <div class="stat-card">
                         <i class="fas fa-clock"></i>
                         <div class="stat-info">
                             <span id="queueCount">0</span>
                             <label>Sırada</label>
                         </div>
                     </div>
-                    <div class="stat-item">
+                    <div class="stat-card">
                         <i class="fas fa-comments"></i>
                         <div class="stat-info">
                             <span id="totalChats">0</span>
@@ -573,26 +574,219 @@ function initializeAdminPanel() {
                     </div>
                 </div>
             </div>
-            <div class="admin-buttons">
-                <button onclick="toggleUserList()" class="admin-btn">
+            <div class="admin-tabs">
+                <button class="tab-btn active" onclick="toggleUserList()">
                     <i class="fas fa-users"></i> Kullanıcılar
                 </button>
-                <button onclick="toggleQueueList()" class="admin-btn">
+                <button class="tab-btn" onclick="toggleQueueList()">
                     <i class="fas fa-list"></i> Sıradakiler
+                </button>
+                <button class="tab-btn" onclick="toggleAnalytics()">
+                    <i class="fas fa-chart-bar"></i> İstatistikler
+                </button>
+                <button class="tab-btn" onclick="toggleSettings()">
+                    <i class="fas fa-cog"></i> Ayarlar
                 </button>
             </div>
             <div id="adminContent" class="admin-content"></div>
         `;
 
         // Admin panelini sayfaya ekle
-        const mainContent = document.querySelector('.main-content') || document.body;
-        mainContent.insertBefore(adminPanel, mainContent.firstChild);
+        document.querySelector('.main-content').prepend(adminPanel);
 
-        // Analitikleri başlat
-        initializeAnalytics();
+        // Yeni stil eklemeleri
+        const newAdminStyles = `
+            .admin-panel {
+                background: var(--bg-card);
+                border-radius: 12px;
+                margin: 20px;
+                padding: 20px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            }
 
-        // İlk olarak kullanıcı listesini göster
+            .admin-header {
+                margin-bottom: 20px;
+            }
+
+            .admin-header h3 {
+                font-size: 24px;
+                color: var(--primary-color);
+                margin-bottom: 20px;
+            }
+
+            .admin-stats {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 20px;
+                margin-bottom: 30px;
+            }
+
+            .stat-card {
+                background: var(--bg-dark);
+                padding: 20px;
+                border-radius: 10px;
+                display: flex;
+                align-items: center;
+                gap: 15px;
+                transition: transform 0.3s ease;
+            }
+
+            .stat-card:hover {
+                transform: translateY(-5px);
+            }
+
+            .stat-card i {
+                font-size: 24px;
+                color: var(--primary-color);
+            }
+
+            .stat-info span {
+                font-size: 24px;
+                font-weight: bold;
+                color: var(--text-primary);
+                display: block;
+            }
+
+            .stat-info label {
+                color: var(--text-secondary);
+                font-size: 14px;
+            }
+
+            .admin-tabs {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 20px;
+                overflow-x: auto;
+                padding-bottom: 10px;
+            }
+
+            .tab-btn {
+                background: var(--bg-dark);
+                border: none;
+                border-radius: 8px;
+                color: var(--text-primary);
+                padding: 12px 20px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                transition: all 0.3s ease;
+                white-space: nowrap;
+            }
+
+            .tab-btn i {
+                font-size: 16px;
+            }
+
+            .tab-btn.active {
+                background: var(--primary-color);
+                color: var(--bg-dark);
+            }
+
+            .tab-btn:hover {
+                background: var(--primary-hover);
+                color: var(--bg-dark);
+            }
+
+            .admin-content {
+                background: var(--bg-dark);
+                border-radius: 8px;
+                padding: 20px;
+                min-height: 400px;
+            }
+
+            /* Kullanıcı listesi stilleri */
+            .user-list {
+                display: grid;
+                gap: 15px;
+            }
+
+            .user-card {
+                background: var(--bg-card);
+                border-radius: 8px;
+                padding: 15px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                transition: transform 0.3s ease;
+            }
+
+            .user-card:hover {
+                transform: translateX(5px);
+            }
+
+            .user-info {
+                display: flex;
+                flex-direction: column;
+                gap: 5px;
+            }
+
+            .user-name {
+                font-size: 16px;
+                font-weight: bold;
+                color: var(--text-primary);
+            }
+
+            .user-email {
+                color: var(--text-secondary);
+                font-size: 14px;
+            }
+
+            .user-status {
+                padding: 4px 8px;
+                border-radius: 12px;
+                font-size: 12px;
+            }
+
+            .user-actions {
+                display: flex;
+                gap: 8px;
+            }
+
+            .action-btn {
+                width: 36px;
+                height: 36px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border: none;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                color: white;
+            }
+
+            .action-btn:hover {
+                transform: scale(1.1);
+            }
+
+            .search-box {
+                margin-bottom: 20px;
+            }
+
+            .search-box input {
+                width: 100%;
+                padding: 12px;
+                border: none;
+                border-radius: 8px;
+                background: var(--bg-card);
+                color: var(--text-primary);
+                font-size: 16px;
+            }
+
+            .search-box input::placeholder {
+                color: var(--text-secondary);
+            }
+        `;
+
+        // Stil ekle
+        const styleElement = document.createElement('style');
+        styleElement.textContent = newAdminStyles;
+        document.head.appendChild(styleElement);
+
+        // İlk görünümü ayarla
         toggleUserList();
+        initializeAnalytics();
     }
 }
 
