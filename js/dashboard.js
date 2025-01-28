@@ -15,8 +15,10 @@ document.addEventListener('DOMContentLoaded', () => {
         logoutBtn.addEventListener('click', async () => {
             try {
                 await firebase.auth().signOut();
+                console.log("Çıkış yapıldı");
                 window.location.href = 'index.html';
             } catch (error) {
+                console.error("Çıkış hatası:", error);
                 alert('Çıkış hatası: ' + error.message);
             }
         });
