@@ -962,3 +962,249 @@ const queueStyles = `
 const style = document.createElement('style');
 style.textContent += queueStyles;
 document.head.appendChild(style);
+
+// Admin paneli fonksiyonları
+window.toggleUserList = function() {
+    const adminContent = document.getElementById('adminContent');
+    
+    firebase.database().ref('users').once('value')
+        .then((snapshot) => {
+            const users = snapshot.val() || {};
+            let html = `
+                <div class="user-management">
+                    <h4>Kullanıcı Yönetimi</h4>
+                    <div class="search-box">
+                        <input type="text" id="userSearch" placeholder="Kullanıcı ara..." onkeyup="filterUsers()">
+                    </div>
+                    <div class="user-list">
+            `;
+            
+            Object.entries(users).forEach(([uid, user]) => {
+                html += `
+                    <div class="user-item" data-user-id="${uid}">
+                        <div class="user-info">
+                            <span class="user-name">${user.name} ${user.surname}</span>
+                            <span class="user-email">${user.email}</span>
+                            <span class="user-status ${user.online ? 'online' : 'offline'}">
+                                ${user.online ? 'Çevrimiçi' : 'Çevrimdışı'}
+                            </span>
+                        </div>
+                        <div class="user-actions">
+                            <button onclick="banUser('${uid}')" class="ban-btn" title="Kullanıcıyı Engelle">
+                                <i class="fas fa-ban"></i>
+                            </button>
+                            <button onclick="deleteUser('${uid}')" class="remove-btn" title="Kullanıcıyı Sil">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `</div></div>`;
+            adminContent.innerHTML = html;
+        })
+        .catch(error => {
+            console.error('Kullanıcı listesi yükleme hatası:', error);
+            showNotification('Kullanıcı listesi yüklenemedi', 'error');
+        });
+};
+
+// Sıra listesi fonksiyonu
+window.toggleQueueList = function() {
+    const adminContent = document.getElementById('adminContent');
+    
+    firebase.database().ref('queue').once('value')
+        .then((snapshot) => {
+            const queue = snapshot.val() || {};
+            let html = `
+                <div class="queue-management">
+                    <h4>Sıra Yönetimi</h4>
+                    <div class="queue-list">
+            `;
+            
+            Object.entries(queue)
+                .sort(([, a], [, b]) => a.timestamp - b.timestamp)
+                .forEach(([uid, data], index) => {
+                    const waitingTime = formatWaitingTime(Date.now() - data.timestamp);
+                    html += `
+                        <div class="queue-item">
+                            <div class="queue-position">#${index + 1}</div>
+                            <div class="queue-user-info">
+                                <span class="user-name">${data.name} ${data.surname}</span>
+                                <span class="user-email">${data.email}</span>
+                                <span class="waiting-time">Bekleme: ${waitingTime}</span>
+                            </div>
+                            <div class="queue-actions">
+                                <button onclick="startChatWithUser('${uid}')" class="start-chat-btn">
+                                    <i class="fas fa-comments"></i> Görüşme Başlat
+                                </button>
+                                <button onclick="removeFromQueue('${uid}')" class="remove-btn">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+            
+            if (Object.keys(queue).length === 0) {
+                html += `<p class="no-data">Sırada bekleyen kullanıcı yok</p>`;
+            }
+            
+            html += `</div></div>`;
+            adminContent.innerHTML = html;
+        })
+        .catch(error => {
+            console.error('Sıra listesi yükleme hatası:', error);
+            showNotification('Sıra listesi yüklenemedi', 'error');
+        });
+};
+
+// Kullanıcı arama fonksiyonu
+window.filterUsers = function() {
+    const input = document.getElementById('userSearch');
+    const filter = input.value.toLowerCase();
+    const userItems = document.querySelectorAll('.user-item');
+
+    userItems.forEach(item => {
+        const name = item.querySelector('.user-name').textContent.toLowerCase();
+        const email = item.querySelector('.user-email').textContent.toLowerCase();
+        
+        if (name.includes(filter) || email.includes(filter)) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+};
+
+// Bekleme süresini formatla
+function formatWaitingTime(ms) {
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    
+    if (minutes > 0) {
+        return `${minutes} dk ${seconds} sn`;
+    }
+    return `${seconds} sn`;
+}
+
+// CSS eklemeleri
+const adminStyles = `
+.user-management, .queue-management {
+    padding: 20px;
+    background: var(--bg-card);
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.search-box {
+    margin-bottom: 15px;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--bg-dark);
+    color: var(--text-primary);
+}
+
+.user-item, .queue-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    border-bottom: 1px solid var(--border-color);
+    transition: background 0.3s ease;
+}
+
+.user-item:hover, .queue-item:hover {
+    background: var(--bg-dark);
+}
+
+.user-info, .queue-user-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.user-name {
+    font-weight: bold;
+    color: var(--text-primary);
+}
+
+.user-email {
+    color: var(--text-secondary);
+    font-size: 0.9em;
+}
+
+.user-status {
+    font-size: 0.8em;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.user-status.online {
+    background: #28a745;
+    color: white;
+}
+
+.user-status.offline {
+    background: #dc3545;
+    color: white;
+}
+
+.user-actions, .queue-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.ban-btn, .remove-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.ban-btn {
+    background: #dc3545;
+    color: white;
+}
+
+.remove-btn {
+    background: #6c757d;
+    color: white;
+}
+
+.ban-btn:hover, .remove-btn:hover {
+    opacity: 0.8;
+}
+
+.queue-position {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: var(--primary-color);
+    width: 40px;
+    text-align: center;
+}
+
+.waiting-time {
+    font-size: 0.8em;
+    color: var(--text-secondary);
+}
+
+.no-data {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-secondary);
+}
+`;
+
+// Stil ekle
+const adminStyleElement = document.createElement('style');
+adminStyleElement.textContent = adminStyles;
+document.head.appendChild(adminStyleElement);
