@@ -1,3 +1,7 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-analytics.js";
+
 const firebaseConfig = {
     // Firebase console'dan alacağınız config bilgilerini buraya ekleyin
     apiKey: "AIzaSyDNmHhmEDO6NHaW5xeVEl_K1bEHZ8wLKPg",
@@ -11,4 +15,8 @@ const firebaseConfig = {
 };
 
 // Firebase'i başlat
-firebase.initializeApp(firebaseConfig); 
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const analytics = getAnalytics(app);
+
+export { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut }; 

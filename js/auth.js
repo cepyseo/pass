@@ -1,3 +1,5 @@
+import { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from './firebase-config.js';
+
 // Form geçişleri için
 const loginForm = document.getElementById('loginForm');
 const registerForm = document.getElementById('registerForm');
@@ -40,7 +42,6 @@ registerForm.addEventListener('submit', async (e) => {
     try {
         await createUserWithEmailAndPassword(auth, email, password);
         alert('Kayıt başarılı! Giriş yapabilirsiniz.');
-        // Kayıt başarılı olduğunda giriş formunu göster
         registerForm.style.display = 'none';
         loginForm.style.display = 'block';
     } catch (error) {
