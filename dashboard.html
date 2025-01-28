@@ -84,18 +84,22 @@
     </script>
     <script src="js/dashboard.js"></script>
 
-    <!-- Mevcut içeriğin sonuna ekleyin -->
+    <!-- Chat Modal -->
     <div id="chatModal" class="chat-modal">
         <div class="chat-container">
             <div class="chat-header">
-                <h3>ClonicGlobal - Müşteri Hizmetleri</h3>
+                <h3>
+                    <span class="online-status" id="supportStatus"></span>
+                    ClonicGlobal - Müşteri Hizmetleri
+                </h3>
                 <button class="close-chat">&times;</button>
             </div>
             <div class="chat-messages" id="chatMessages">
                 <!-- Mesajlar buraya gelecek -->
             </div>
             <div id="queueMessage" class="queue-message" style="display: none;">
-                <p>Müşteri hizmetlerimiz şu an başka bir kullanıcıyla ilgileniyor. Sıraya alındınız, lütfen bekleyiniz...</p>
+                <p>Müşteri hizmetlerimiz şu an başka bir kullanıcıyla ilgileniyor.</p>
+                <p>Sıraya alındınız, lütfen bekleyiniz...</p>
                 <div class="queue-loader"></div>
             </div>
             <div class="chat-input-area">

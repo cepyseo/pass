@@ -72,7 +72,20 @@ document.addEventListener('DOMContentLoaded', function() {
     function addMessage(text, type) {
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${type}`;
-        messageDiv.textContent = text;
+        
+        const messageText = document.createElement('span');
+        messageText.textContent = text;
+        
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'message-time';
+        const now = new Date();
+        timeSpan.textContent = now.toLocaleTimeString('tr-TR', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+        });
+        
+        messageDiv.appendChild(messageText);
+        messageDiv.appendChild(timeSpan);
         chatMessages.appendChild(messageDiv);
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
@@ -105,15 +118,28 @@ document.addEventListener('DOMContentLoaded', function() {
     function sendChatMessage() {
         const message = chatInput.value.trim();
         if (message) {
+            const now = new Date();
             addMessage(message, 'user');
             chatInput.value = '';
             
             // Mesajı veritabanına kaydet
             firebase.database().ref('chats').push({
                 message: message,
-                timestamp: Date.now(),
-                type: 'user'
+                timestamp: now.getTime(),
+                type: 'user',
+                userId: firebase.auth().currentUser.uid
             });
         }
     }
+
+    // Müşteri hizmetleri durumunu kontrol et
+    function updateSupportStatus(isOnline) {
+        const statusDot = document.getElementById('supportStatus');
+        statusDot.className = isOnline ? 'online-status' : 'offline-status';
+    }
+
+    // Müşteri hizmetleri durumunu dinle
+    firebase.database().ref('supportStatus/online').on('value', (snapshot) => {
+        updateSupportStatus(snapshot.val());
+    });
 }); 
