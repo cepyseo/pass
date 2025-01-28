@@ -272,16 +272,98 @@ body {
 
 .register-link, .login-link {
     text-align: center;
-    margin-top: 15px;
+    margin-top: 20px;
 }
 
 .register-link a, .login-link a {
-    color: #1a73e8;
+    color: var(--primary-color);
     text-decoration: none;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    position: relative;
 }
 
 .register-link a:hover, .login-link a:hover {
-    text-decoration: underline;
+    color: #00CC00;
+    text-decoration: none;
+}
+
+.register-link a::after, .login-link a::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 1px;
+    bottom: -2px;
+    left: 0;
+    background-color: var(--primary-color);
+    transform: scaleX(0);
+    transform-origin: right;
+    transition: transform 0.3s ease;
+}
+
+.register-link a:hover::after, .login-link a:hover::after {
+    transform: scaleX(1);
+    transform-origin: left;
+}
+
+/* Form butonları için güncellemeler */
+button[type="submit"] {
+    width: 100%;
+    padding: 16px;
+    background: var(--primary-color);
+    color: var(--bg-dark);
+    border: none;
+    border-radius: 12px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 30px;
+    position: relative;
+    overflow: hidden;
+}
+
+button[type="submit"]:hover {
+    background: #00CC00;
+    box-shadow: 0 0 20px var(--glow-color);
+}
+
+button[type="submit"]::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        120deg,
+        transparent,
+        rgba(255, 255, 255, 0.2),
+        transparent
+    );
+    transition: 0.5s;
+}
+
+button[type="submit"]:hover::before {
+    left: 100%;
+}
+
+/* Hata mesajları için stil */
+.error-message {
+    color: #ff4444;
+    font-size: 0.9rem;
+    margin-top: 5px;
+    display: none;
+}
+
+.form-group.error .error-message {
+    display: block;
+}
+
+.form-group.error input {
+    border-color: #ff4444;
 }
 
 .product-description {
