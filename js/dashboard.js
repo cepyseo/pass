@@ -569,7 +569,140 @@ function initializeCustomerSupport() {
     chatContainer.insertBefore(userInfoPanel, chatContainer.firstChild);
 }
 
-// Sayfanın yüklenmesi tamamlandığında başlat
+// Kullanıcı listesi ve sıra yönetimi için fonksiyonlar
+function initializeUserManagement() {
+    const chatContainer = document.querySelector('.chat-container');
+    const userListDiv = document.createElement('div');
+    userListDiv.className = 'user-list-container';
+    
+    // Kullanıcı listesini güncelle
+    function updateUserList() {
+        firebase.database().ref('users').on('value', (snapshot) => {
+            const users = snapshot.val() || {};
+            userListDiv.innerHTML = `
+                <div class="user-list-header">
+                    <h3>Aktif Kullanıcılar</h3>
+                    ${isAdmin ? '<button onclick="toggleUserManagement()">Yönet</button>' : ''}
+                </div>
+                <div class="user-list">
+                    ${Object.entries(users).map(([uid, user]) => `
+                        <div class="user-item ${user.online ? 'online' : 'offline'}">
+                            <div class="user-info">
+                                <span class="user-name">${user.name} ${user.surname}</span>
+                                <span class="user-email">${user.email}</span>
+                                <span class="user-status">${user.online ? 'Çevrimiçi' : 'Çevrimdışı'}</span>
+                            </div>
+                            ${isAdmin && user.email !== 'cepyseo@outlook.com' ? `
+                                <div class="user-actions">
+                                    <button onclick="banUser('${uid}')" class="ban-btn">Engelle</button>
+                                    <button onclick="muteUser('${uid}')" class="mute-btn">Sustur</button>
+                                    <button onclick="removeFromQueue('${uid}')" class="remove-btn">Sıradan Çıkar</button>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        });
+    }
+
+    // Sıra yönetimi
+    function initializeQueue() {
+        const queueDiv = document.createElement('div');
+        queueDiv.className = 'queue-container';
+        
+        firebase.database().ref('queue').on('value', (snapshot) => {
+            const queue = snapshot.val() || {};
+            const onlineUsers = Object.entries(queue).filter(([_, data]) => data.online);
+            
+            queueDiv.innerHTML = `
+                <div class="queue-header">
+                    <h3>Sıradaki Kullanıcılar (${onlineUsers.length})</h3>
+                </div>
+                <div class="queue-list">
+                    ${onlineUsers.map(([uid, data], index) => `
+                        <div class="queue-item">
+                            <span class="queue-position">#${index + 1}</span>
+                            <div class="queue-user-info">
+                                <span class="user-name">${data.name}</span>
+                                <span class="user-email">${data.email}</span>
+                            </div>
+                            ${isAdmin ? `
+                                <button onclick="removeFromQueue('${uid}')" class="remove-btn">
+                                    Sıradan Çıkar
+                                </button>
+                            ` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        });
+
+        return queueDiv;
+    }
+
+    // Admin kontrolleri
+    if (firebase.auth().currentUser?.email === 'cepyseo@outlook.com') {
+        isAdmin = true;
+        const adminControls = document.createElement('div');
+        adminControls.className = 'admin-controls';
+        adminControls.innerHTML = `
+            <button onclick="showQueueManagement()">Sıra Yönetimi</button>
+            <button onclick="showUserManagement()">Kullanıcı Yönetimi</button>
+        `;
+        chatContainer.insertBefore(adminControls, chatContainer.firstChild);
+    }
+
+    // Kullanıcı listesi ve sırayı ekle
+    chatContainer.insertBefore(userListDiv, chatContainer.firstChild);
+    chatContainer.insertBefore(initializeQueue(), chatContainer.firstChild);
+
+    // İlk yükleme
+    updateUserList();
+}
+
+// Admin fonksiyonları
+window.banUser = function(uid) {
+    if (!isAdmin) return;
+    
+    firebase.database().ref(`bannedUsers/${uid}`).set(true)
+        .then(() => {
+            removeFromQueue(uid);
+            alert('Kullanıcı engellendi.');
+        })
+        .catch(error => {
+            console.error('Ban hatası:', error);
+            alert('Kullanıcı engellenirken bir hata oluştu.');
+        });
+};
+
+window.muteUser = function(uid) {
+    if (!isAdmin) return;
+    
+    firebase.database().ref(`mutedUsers/${uid}`).set(true)
+        .then(() => {
+            alert('Kullanıcı susturuldu.');
+        })
+        .catch(error => {
+            console.error('Mute hatası:', error);
+            alert('Kullanıcı susturulurken bir hata oluştu.');
+        });
+};
+
+window.removeFromQueue = function(uid) {
+    if (!isAdmin) return;
+    
+    firebase.database().ref(`queue/${uid}`).remove()
+        .then(() => {
+            alert('Kullanıcı sıradan çıkarıldı.');
+        })
+        .catch(error => {
+            console.error('Sıradan çıkarma hatası:', error);
+            alert('Kullanıcı sıradan çıkarılırken bir hata oluştu.');
+        });
+};
+
+// Sayfa yüklendiğinde başlat
 document.addEventListener('DOMContentLoaded', () => {
-    initializeCustomerSupport();
+    initializeUserManagement();
 }); 
