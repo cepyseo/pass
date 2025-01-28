@@ -531,76 +531,215 @@ function getNotificationIcon(type) {
     return icons[type] || icons.info;
 }
 
-// Admin paneli başlatma
+// Admin paneli başlatma fonksiyonunu güncelle
 function initializeAdminPanel() {
     const user = firebase.auth().currentUser;
     if (user && user.email === 'cepyseo@outlook.com') {
         isAdmin = true;
         
+        // Önce mevcut admin panelini temizle
+        const existingPanel = document.querySelector('.admin-panel');
+        if (existingPanel) {
+            existingPanel.remove();
+        }
+
         // Admin panelini oluştur
         const adminPanel = document.createElement('div');
         adminPanel.className = 'admin-panel';
         adminPanel.innerHTML = `
-            <div class="admin-sidebar">
-                <div class="admin-profile">
-                    <div class="admin-avatar">
-                        <i class="fas fa-user-shield"></i>
-                    </div>
-                    <div class="admin-info">
-                        <h4>Admin Panel</h4>
-                        <span class="admin-status">Online</span>
-                    </div>
-                </div>
-                <div class="admin-stats">
-                    <div class="stat-item">
-                        <i class="fas fa-users"></i>
-                        <div class="stat-details">
-                            <span class="stat-value" id="onlineUsersCount">0</span>
-                            <span class="stat-label">Online</span>
-                        </div>
-                    </div>
-                    <div class="stat-item">
-                        <i class="fas fa-clock"></i>
-                        <div class="stat-details">
-                            <span class="stat-value" id="queueCount">0</span>
-                            <span class="stat-label">Sırada</span>
-                        </div>
-                    </div>
-                    <div class="stat-item">
-                        <i class="fas fa-chart-line"></i>
-                        <div class="stat-details">
-                            <span class="stat-value" id="totalChats">0</span>
-                            <span class="stat-label">Görüşme</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="admin-actions">
-                    <button onclick="toggleUserList()" class="admin-btn">
-                        <i class="fas fa-users"></i> Kullanıcılar
-                    </button>
-                    <button onclick="toggleQueueList()" class="admin-btn">
-                        <i class="fas fa-list"></i> Sıra
-                    </button>
-                    <button onclick="toggleSystemStatus()" class="admin-btn">
-                        <i class="fas fa-cog"></i> Sistem
-                    </button>
-                    <button onclick="showAnalytics()" class="admin-btn">
-                        <i class="fas fa-chart-bar"></i> Analitik
-                    </button>
-                </div>
+            <div class="admin-header">
+                <h3>Admin Paneli</h3>
             </div>
-            <div class="admin-content" id="adminContent"></div>
+            <div class="admin-buttons">
+                <button onclick="toggleUserList()" class="admin-btn">
+                    <i class="fas fa-users"></i> Kullanıcılar
+                </button>
+                <button onclick="toggleQueueList()" class="admin-btn">
+                    <i class="fas fa-list"></i> Sıradakiler
+                </button>
+            </div>
+            <div id="adminContent" class="admin-content"></div>
         `;
-        
+
         // Admin panelini sayfaya ekle
-        const container = document.querySelector('.dashboard-container');
-        if (container) {
-            container.insertBefore(adminPanel, container.firstChild);
-            updateAdminStats();
-            initializeAnalytics();
-        }
+        const mainContent = document.querySelector('.main-content') || document.body;
+        mainContent.insertBefore(adminPanel, mainContent.firstChild);
+
+        // CSS ekle
+        const adminStyles = `
+            .admin-panel {
+                background: #fff;
+                border-radius: 8px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                margin: 20px;
+                padding: 20px;
+            }
+
+            .admin-header {
+                border-bottom: 1px solid #eee;
+                margin-bottom: 20px;
+                padding-bottom: 10px;
+            }
+
+            .admin-header h3 {
+                color: #333;
+                margin: 0;
+            }
+
+            .admin-buttons {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 20px;
+            }
+
+            .admin-btn {
+                background: #007bff;
+                border: none;
+                border-radius: 4px;
+                color: white;
+                cursor: pointer;
+                padding: 10px 20px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                transition: background 0.3s;
+            }
+
+            .admin-btn:hover {
+                background: #0056b3;
+            }
+
+            .admin-content {
+                background: #f8f9fa;
+                border-radius: 4px;
+                padding: 20px;
+                min-height: 200px;
+            }
+
+            .user-list, .queue-list {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .user-item, .queue-item {
+                background: white;
+                border-radius: 4px;
+                padding: 15px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            }
+
+            .user-info, .queue-user-info {
+                flex: 1;
+            }
+
+            .user-actions, .queue-actions {
+                display: flex;
+                gap: 8px;
+            }
+
+            .start-chat-btn {
+                background: #28a745;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 8px 16px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+            }
+
+            .start-chat-btn:hover {
+                background: #218838;
+            }
+
+            .remove-btn, .ban-btn {
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                border: none;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+            }
+
+            .remove-btn {
+                background: #dc3545;
+            }
+
+            .ban-btn {
+                background: #6c757d;
+            }
+
+            .search-box {
+                margin-bottom: 15px;
+            }
+
+            .search-box input {
+                width: 100%;
+                padding: 10px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+            }
+
+            .user-status {
+                display: inline-block;
+                padding: 3px 8px;
+                border-radius: 12px;
+                font-size: 12px;
+                margin-left: 10px;
+            }
+
+            .user-status.online {
+                background: #28a745;
+                color: white;
+            }
+
+            .user-status.offline {
+                background: #dc3545;
+                color: white;
+            }
+        `;
+
+        const styleElement = document.createElement('style');
+        styleElement.textContent = adminStyles;
+        document.head.appendChild(styleElement);
+
+        // İlk olarak kullanıcı listesini göster
+        toggleUserList();
     }
 }
+
+// Kullanıcıdan sıradan çıkarma fonksiyonu
+window.removeFromQueue = async function(uid) {
+    try {
+        await firebase.database().ref(`queue/${uid}`).remove();
+        showNotification('Kullanıcı sıradan çıkarıldı', 'success');
+    } catch (error) {
+        console.error('Sıradan çıkarma hatası:', error);
+        showNotification('Sıradan çıkarma başarısız', 'error');
+    }
+};
+
+// Kullanıcı engelleme fonksiyonu
+window.banUser = async function(uid) {
+    try {
+        await firebase.database().ref(`bannedUsers/${uid}`).set({
+            timestamp: Date.now(),
+            bannedBy: firebase.auth().currentUser.uid
+        });
+        showNotification('Kullanıcı engellendi', 'success');
+    } catch (error) {
+        console.error('Engelleme hatası:', error);
+        showNotification('Engelleme başarısız', 'error');
+    }
+};
 
 // İstatistikleri güncelle
 function updateAdminStats() {
