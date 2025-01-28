@@ -11,42 +11,82 @@
 </head>
 <body>
     <div class="dashboard-container">
-        <header>
-            <h1>Cursor AI - Profesyonel Business Plan</h1>
-            <button id="logoutBtn">Çıkış Yap</button>
+        <header class="main-header">
+            <div class="header-content">
+                <h1>Cursor AI - Business Plan</h1>
+                <button id="logoutBtn">Çıkış Yap</button>
+            </div>
         </header>
         
-        <main class="product-card">
-            <h2>CURSOR AI - AYLIK PROFESYONEL BUSİNESS PLAN</h2>
-            <div class="price">850 TL</div>
-            
-            <div class="product-description">
-                <p>CURSOR AI - AYLIK PROFESYONEL BUSİNESS PLAN! SADECE 850 TL!</p>
-            </div>
-            
-            <h3>ÖZELLİKLERİ:</h3>
-            <ul class="features-list">
-                <li>✓ Limitsiz ChatGPT-O1 Model Kullanımı</li>
-                <li>✓ Limitsiz Claude 3.5 Sonnet Kullanımı</li>
-                <li>✓ Limitsiz Gemini Kullanımı</li>
-                <li>✓ Kendi CURSOR Hesabınızı Kullanırsınız</li>
-                <li>✓ Profesyonel Business Hesap</li>
-                <li>✓ 1 Aylık Sınırsız Proje ve Hızlı Fast Kullanım Modu</li>
-                <li>✓ 5000 request kapasitesi</li>
-                <li>✓ 10 hesap gücü kullanımı</li>
-                <li>✓ Gizlilik garantisi</li>
-                <li>✓ Uygun maliyet</li>
-            </ul>
+        <div class="pricing-header">
+            <h2>Profesyonel Business Planınızı Seçin</h2>
+            <p class="subtitle">Size en uygun planı seçin</p>
+        </div>
 
-            <div class="additional-info">
-                <p>- Sizin özel hesabınıza gönderilen davet linki ile ekip üyesi olarak Limitsiz Kullanım İmkanı sunar, cursor business paketini kullanır hiçbir kota sorunu yaşamazsınız.</p>
-                <p>- Ayrıca Cursor AI'nin kendi sitesinde bu fiyat 40 Dolar iken yani 1430 liraya tekabul ediyor iken biz bunu size sadece 850 TL İndirimli Fiyata veriyoruz!</p>
-                <p>Sayısız Referans İle Satışta..</p>
-                <p>7/24 AÇIK</p>
-            </div>
+        <div class="pricing-container">
+            <div class="pricing-card business">
+                <div class="card-header">
+                    <h3>Business</h3>
+                    <div class="price-container">
+                        <span class="price">850 TL</span>
+                        <span class="period">/aylık</span>
+                    </div>
+                    <div class="compare-price">
+                        <span class="original-price">Normal Fiyat: 1430 TL (40$)</span>
+                        <span class="save-text">%40 İndirim!</span>
+                    </div>
+                </div>
 
-            <button class="buy-button">Hemen Satın Al</button>
-        </main>
+                <div class="features">
+                    <h4>Özellikler</h4>
+                    <ul>
+                        <li>
+                            <span class="check">✓</span>
+                            <span class="feature-text">Limitsiz ChatGPT-O1 Model Kullanımı</span>
+                        </li>
+                        <li>
+                            <span class="check">✓</span>
+                            <span class="feature-text">Limitsiz Claude 3.5 Sonnet Kullanımı</span>
+                        </li>
+                        <li>
+                            <span class="check">✓</span>
+                            <span class="feature-text">Limitsiz Gemini Kullanımı</span>
+                        </li>
+                        <li>
+                            <span class="check">✓</span>
+                            <span class="feature-text">Kendi CURSOR Hesabınızı Kullanırsınız</span>
+                        </li>
+                        <li>
+                            <span class="check">✓</span>
+                            <span class="feature-text">5000 Request Kapasitesi</span>
+                        </li>
+                        <li>
+                            <span class="check">✓</span>
+                            <span class="feature-text">10 Hesap Gücü</span>
+                        </li>
+                        <li>
+                            <span class="check">✓</span>
+                            <span class="feature-text">Gizlilik Garantisi</span>
+                        </li>
+                        <li>
+                            <span class="check">✓</span>
+                            <span class="feature-text">7/24 Destek</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <button class="buy-button">Hemen Satın Al</button>
+
+                <div class="additional-info">
+                    <div class="info-box">
+                        <h4>Özel Avantajlar</h4>
+                        <p>✦ Sizin özel hesabınıza gönderilen davet linki ile ekip üyesi olarak Limitsiz Kullanım İmkanı</p>
+                        <p>✦ Cursor business paketini kullanın, hiçbir kota sorunu yaşamayın</p>
+                        <p>✦ Sayısız referans ile güvenilir hizmet</p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Firebase Config -->

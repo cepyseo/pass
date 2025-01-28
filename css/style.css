@@ -177,4 +177,198 @@ header {
 .additional-info p {
     margin: 10px 0;
     color: #555;
+}
+
+/* Yeni Dashboard Stilleri */
+.main-header {
+    background-color: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    padding: 1rem 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.header-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.pricing-header {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.pricing-header h2 {
+    font-size: 2.5rem;
+    color: #1a1a1a;
+    margin-bottom: 1rem;
+}
+
+.subtitle {
+    font-size: 1.2rem;
+    color: #666;
+}
+
+.pricing-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    justify-content: center;
+}
+
+.pricing-card {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    padding: 2rem;
+    width: 100%;
+    max-width: 400px;
+    transition: transform 0.3s ease;
+}
+
+.pricing-card:hover {
+    transform: translateY(-5px);
+}
+
+.card-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.card-header h3 {
+    font-size: 1.8rem;
+    color: #1a73e8;
+    margin-bottom: 1rem;
+}
+
+.price-container {
+    margin-bottom: 1rem;
+}
+
+.price {
+    font-size: 3rem;
+    font-weight: bold;
+    color: #1a1a1a;
+}
+
+.period {
+    font-size: 1.2rem;
+    color: #666;
+}
+
+.compare-price {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.save-text {
+    display: block;
+    color: #00c853;
+    font-weight: bold;
+    margin-top: 0.5rem;
+}
+
+.features {
+    margin: 2rem 0;
+}
+
+.features h4 {
+    font-size: 1.2rem;
+    color: #1a1a1a;
+    margin-bottom: 1rem;
+}
+
+.features ul {
+    list-style: none;
+    padding: 0;
+}
+
+.features li {
+    display: flex;
+    align-items: center;
+    margin: 1rem 0;
+    font-size: 1rem;
+    color: #333;
+}
+
+.check {
+    color: #1a73e8;
+    font-weight: bold;
+    margin-right: 1rem;
+}
+
+.buy-button {
+    width: 100%;
+    padding: 1rem;
+    font-size: 1.2rem;
+    background-color: #1a73e8;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.buy-button:hover {
+    background-color: #1557b0;
+}
+
+.additional-info {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid #eee;
+}
+
+.info-box {
+    background-color: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 8px;
+}
+
+.info-box h4 {
+    font-size: 1.1rem;
+    color: #1a1a1a;
+    margin-bottom: 1rem;
+}
+
+.info-box p {
+    font-size: 0.9rem;
+    color: #666;
+    margin: 0.5rem 0;
+}
+
+#logoutBtn {
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    background-color: transparent;
+    color: #1a73e8;
+    border: 1px solid #1a73e8;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+#logoutBtn:hover {
+    background-color: #1a73e8;
+    color: white;
+}
+
+@media (max-width: 768px) {
+    .pricing-header h2 {
+        font-size: 2rem;
+    }
+
+    .pricing-card {
+        padding: 1.5rem;
+    }
+
+    .price {
+        font-size: 2.5rem;
+    }
 } 
