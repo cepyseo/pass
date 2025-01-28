@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ClonicPass - Dashboard</title>
     <link rel="stylesheet" href="css/style.css">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
 </head>
 <body>
     <div class="dashboard-container">
@@ -16,6 +19,10 @@
         <main class="product-card">
             <h2>CURSOR AI - AYLIK PROFESYONEL BUSİNESS PLAN</h2>
             <div class="price">850 TL</div>
+            
+            <div class="product-description">
+                <p>CURSOR AI - AYLIK PROFESYONEL BUSİNESS PLAN! SADECE 850 TL!</p>
+            </div>
             
             <h3>ÖZELLİKLERİ:</h3>
             <ul class="features-list">
@@ -31,10 +38,31 @@
                 <li>✓ Uygun maliyet</li>
             </ul>
 
+            <div class="additional-info">
+                <p>- Sizin özel hesabınıza gönderilen davet linki ile ekip üyesi olarak Limitsiz Kullanım İmkanı sunar, cursor business paketini kullanır hiçbir kota sorunu yaşamazsınız.</p>
+                <p>- Ayrıca Cursor AI'nin kendi sitesinde bu fiyat 40 Dolar iken yani 1430 liraya tekabul ediyor iken biz bunu size sadece 850 TL İndirimli Fiyata veriyoruz!</p>
+                <p>Sayısız Referans İle Satışta..</p>
+                <p>7/24 AÇIK</p>
+            </div>
+
             <button class="buy-button">Hemen Satın Al</button>
         </main>
     </div>
-    <script type="module" src="js/firebase-config.js"></script>
-    <script type="module" src="js/dashboard.js"></script>
+
+    <!-- Firebase Config -->
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDNmHhmEDO6NHaW5xeVEl_K1bEHZ8wLKPg",
+            authDomain: "clonicbusiness.firebaseapp.com",
+            databaseURL: "https://clonicbusiness-default-rtdb.firebaseio.com",
+            projectId: "clonicbusiness",
+            storageBucket: "clonicbusiness.firebasestorage.app",
+            messagingSenderId: "83234032898",
+            appId: "1:83234032898:web:d145adfa9ebd6cd1fc861b",
+            measurementId: "G-TJ15WL5ZR7"
+        };
+        firebase.initializeApp(firebaseConfig);
+    </script>
+    <script src="js/dashboard.js"></script>
 </body>
 </html> 

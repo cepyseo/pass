@@ -1,23 +1,32 @@
-// Auth durumunu kontrol et
-auth.onAuthStateChanged((user) => {
-    if (!user) {
-        window.location.href = 'index.html';
-    }
-});
+import { auth, signOut } from './firebase-config.js';
 
-// Çıkış yapma işlemi
-const logoutBtn = document.getElementById('logoutBtn');
-logoutBtn.addEventListener('click', async () => {
-    try {
-        await signOut(auth);
-        window.location.href = 'index.html';
-    } catch (error) {
-        alert('Çıkış hatası: ' + error.message);
-    }
-});
+document.addEventListener('DOMContentLoaded', () => {
+    // Auth durumunu kontrol et
+    firebase.auth().onAuthStateChanged((user) => {
+        if (!user) {
+            // Kullanıcı giriş yapmamışsa login sayfasına yönlendir
+            window.location.href = 'index.html';
+        }
+    });
 
-// Satın alma butonu işlemi
-const buyButton = document.querySelector('.buy-button');
-buyButton.addEventListener('click', () => {
-    alert('Ödeme sistemi yakında eklenecek!');
+    // Çıkış yapma işlemi
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                await firebase.auth().signOut();
+                window.location.href = 'index.html';
+            } catch (error) {
+                alert('Çıkış hatası: ' + error.message);
+            }
+        });
+    }
+
+    // Satın alma butonu işlemi
+    const buyButton = document.querySelector('.buy-button');
+    if (buyButton) {
+        buyButton.addEventListener('click', () => {
+            alert('Ödeme sistemi yakında eklenecek!');
+        });
+    }
 }); 

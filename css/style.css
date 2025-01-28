@@ -103,14 +103,34 @@ header {
 }
 
 .features-list li {
-    margin: 10px 0;
-    padding-left: 20px;
+    margin: 15px 0;
+    padding-left: 30px;
+    position: relative;
+}
+
+.features-list li:before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: #1a73e8;
+    font-weight: bold;
 }
 
 .buy-button {
-    margin-top: 20px;
-    padding: 15px 30px;
-    font-size: 18px;
+    background-color: #1a73e8;
+    color: white;
+    padding: 15px 40px;
+    font-size: 1.2em;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    margin-top: 30px;
+    width: auto;
+}
+
+.buy-button:hover {
+    background-color: #1557b0;
 }
 
 #logoutBtn {
@@ -139,4 +159,22 @@ header {
 
 .register-link a:hover, .login-link a:hover {
     text-decoration: underline;
+}
+
+.product-description {
+    margin: 20px 0;
+    font-size: 1.2em;
+    color: #333;
+}
+
+.additional-info {
+    margin: 20px 0;
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+}
+
+.additional-info p {
+    margin: 10px 0;
+    color: #555;
 } 
