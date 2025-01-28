@@ -1,4 +1,15 @@
-/* Genel Stiller */
+/* Dark Theme Base Styles */
+:root {
+    --primary-color: #00FF00;
+    --bg-dark: #0A0A0A;
+    --bg-card: #1A1A1A;
+    --text-primary: #FFFFFF;
+    --text-secondary: #888888;
+    --border-color: #333333;
+    --hover-color: #222222;
+    --glow-color: rgba(0, 255, 0, 0.2);
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -6,136 +17,248 @@
 }
 
 body {
-    font-family: Arial, sans-serif;
-    background-color: #f0f2f5;
+    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--bg-dark);
+    color: var(--text-primary);
     line-height: 1.6;
+    min-height: 100vh;
 }
 
-/* Giriş Sayfası Stilleri */
+/* Login/Register Page Styles */
 .login-container {
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
     padding: 20px;
+    background: linear-gradient(45deg, #0a0a0a, #1a1a1a);
 }
 
 .login-box {
-    background: white;
-    padding: 30px;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    background: var(--bg-card);
+    padding: 40px;
+    border-radius: 16px;
+    border: 1px solid var(--border-color);
     width: 100%;
     max-width: 400px;
+    box-shadow: 0 8px 32px rgba(0, 255, 0, 0.1);
+    backdrop-filter: blur(10px);
 }
 
 .login-box h1 {
     text-align: center;
     margin-bottom: 30px;
-    color: #1a73e8;
+    color: var(--primary-color);
+    font-size: 2rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
 }
 
 .form-group {
-    margin-bottom: 20px;
+    margin-bottom: 25px;
 }
 
 .form-group label {
     display: block;
-    margin-bottom: 5px;
-    color: #333;
+    margin-bottom: 8px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 .form-group input {
     width: 100%;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 16px;
-}
-
-button {
-    width: 100%;
     padding: 12px;
-    background-color: #1a73e8;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    font-size: 16px;
-    cursor: pointer;
-    transition: background-color 0.3s;
+    background: var(--bg-dark);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 1rem;
+    transition: all 0.3s ease;
 }
 
-button:hover {
-    background-color: #1557b0;
+.form-group input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px var(--glow-color);
 }
 
-/* Dashboard Sayfası Stilleri */
+/* Dashboard Styles */
 .dashboard-container {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+}
+
+.main-header {
+    background-color: rgba(26, 26, 26, 0.8);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border-color);
+    padding: 20px 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.header-content {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 20px;
-}
-
-header {
+    padding: 0 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 30px;
 }
 
-.product-card {
-    background: white;
-    padding: 30px;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+.header-content h1 {
+    color: var(--primary-color);
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+
+.pricing-container {
+    max-width: 500px;
+    margin: 60px auto;
+    padding: 0 20px;
+}
+
+.pricing-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 40px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.pricing-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--primary-color), transparent);
+}
+
+.pricing-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 40px rgba(0, 255, 0, 0.1);
+}
+
+.card-header h2 {
+    font-size: 2rem;
+    color: var(--primary-color);
+    margin-bottom: 20px;
+    letter-spacing: 1px;
+}
+
+.price-container {
+    margin: 30px 0;
 }
 
 .price {
-    font-size: 2em;
-    color: #1a73e8;
-    font-weight: bold;
-    margin: 20px 0;
+    font-size: 3.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.period {
+    color: var(--text-secondary);
+    margin-left: 8px;
+}
+
+.compare-price {
+    margin: 15px 0;
+}
+
+.original-price {
+    color: var(--text-secondary);
+    text-decoration: line-through;
+    font-size: 1.1rem;
+}
+
+.current-price {
+    color: var(--primary-color);
+    font-size: 1.2rem;
+    font-weight: 500;
+    display: block;
+    margin-top: 5px;
 }
 
 .features-list {
-    list-style: none;
-    margin: 20px 0;
+    margin: 40px 0;
 }
 
 .features-list li {
-    margin: 15px 0;
-    padding-left: 30px;
-    position: relative;
+    display: flex;
+    align-items: center;
+    margin: 20px 0;
+    color: var(--text-primary);
 }
 
-.features-list li:before {
-    content: "✓";
-    position: absolute;
-    left: 0;
-    color: #1a73e8;
-    font-weight: bold;
+.check {
+    color: var(--primary-color);
+    margin-right: 15px;
+    font-size: 1.2rem;
+}
+
+.feature-text {
+    font-size: 1rem;
+    line-height: 1.5;
 }
 
 .buy-button {
-    background-color: #1a73e8;
-    color: white;
-    padding: 15px 40px;
-    font-size: 1.2em;
+    width: 100%;
+    padding: 16px;
+    background: var(--primary-color);
+    color: var(--bg-dark);
     border: none;
-    border-radius: 8px;
+    border-radius: 12px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
     cursor: pointer;
-    transition: background-color 0.3s;
+    transition: all 0.3s ease;
     margin-top: 30px;
-    width: auto;
 }
 
 .buy-button:hover {
-    background-color: #1557b0;
+    background: #00CC00;
+    box-shadow: 0 0 20px var(--glow-color);
 }
 
 #logoutBtn {
-    width: auto;
+    background: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
     padding: 8px 20px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+#logoutBtn:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    box-shadow: 0 0 10px var(--glow-color);
+}
+
+@media (max-width: 768px) {
+    .pricing-card {
+        padding: 30px;
+    }
+
+    .price {
+        font-size: 2.5rem;
+    }
+
+    .card-header h2 {
+        font-size: 1.5rem;
+    }
 }
 
 /* Form geçiş stilleri */
@@ -180,171 +303,6 @@ header {
 }
 
 /* Yeni Dashboard Stilleri */
-.main-header {
-    background-color: #0A0A0A;
-    border-bottom: 1px solid #333;
-    padding: 1.5rem 0;
-}
-
-.header-content {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 2rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.header-content h1 {
-    color: #FFFFFF;
-    font-size: 1.5rem;
-    font-weight: 600;
-}
-
-.pricing-container {
-    max-width: 400px;
-    margin: 4rem auto;
-    padding: 0 2rem;
-}
-
-.pricing-card {
-    background-color: #1A1A1A;
-    border: 1px solid #333;
-    border-radius: 12px;
-    padding: 2rem;
-    transition: transform 0.3s ease;
-}
-
-.pricing-card:hover {
-    transform: translateY(-5px);
-}
-
-.card-header {
-    text-align: left;
-    margin-bottom: 2rem;
-}
-
-.card-header h2 {
-    font-size: 1.5rem;
-    color: #FFFFFF;
-    margin-bottom: 1rem;
-    font-weight: 600;
-}
-
-.price-container {
-    margin-bottom: 0.5rem;
-}
-
-.price {
-    font-size: 2.5rem;
-    font-weight: 700;
-    color: #FFFFFF;
-}
-
-.period {
-    font-size: 1rem;
-    color: #888;
-    margin-left: 0.5rem;
-}
-
-.compare-price {
-    margin-top: 1rem;
-    font-size: 0.9rem;
-}
-
-.original-price {
-    color: #888;
-    text-decoration: line-through;
-    display: block;
-}
-
-.current-price {
-    color: #00FF00;
-    font-weight: 500;
-    display: block;
-    margin-top: 0.25rem;
-}
-
-.plan-description {
-    color: #888;
-    margin: 1.5rem 0;
-    font-size: 1rem;
-}
-
-.features-list {
-    list-style: none;
-    padding: 0;
-    margin: 2rem 0;
-}
-
-.features-list li {
-    display: flex;
-    align-items: center;
-    margin: 1rem 0;
-    color: #FFFFFF;
-    font-size: 0.9rem;
-}
-
-.check {
-    color: #00FF00;
-    margin-right: 1rem;
-    font-weight: bold;
-}
-
-.buy-button {
-    width: 100%;
-    padding: 1rem;
-    background-color: #FFFFFF;
-    color: #000000;
-    border: none;
-    border-radius: 6px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    margin-top: 2rem;
-}
-
-.buy-button:hover {
-    background-color: #E6E6E6;
-}
-
-#logoutBtn {
-    background-color: transparent;
-    color: #FFFFFF;
-    border: 1px solid #333;
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-#logoutBtn:hover {
-    background-color: #333;
-}
-
-@media (max-width: 768px) {
-    .pricing-container {
-        padding: 0 1rem;
-    }
-
-    .pricing-card {
-        padding: 1.5rem;
-    }
-
-    .price {
-        font-size: 2rem;
-    }
-}
-
-/* Dark Theme Styles */
-.dark-theme {
-    background-color: #0A0A0A;
-    color: #FFFFFF;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-}
-
 .pricing-header {
     text-align: center;
     padding: 60px 20px;
