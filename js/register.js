@@ -13,23 +13,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const password = document.getElementById('registerPassword').value;
 
             try {
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                // Kullanıcıyı oluştur
+                const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
                 const user = userCredential.user;
 
                 // Kullanıcı bilgilerini kaydet
-                await firebase.database().ref('users/' + user.uid).set({
-                    name: name,
-                    surname: surname,
-                    email: email
-                });
+                await saveUserInfo(user, name, surname);
 
                 // Email doğrulama gönder
                 await user.sendEmailVerification();
                 
-                alert('Kayıt başarılı! Lütfen email adresinizi doğrulayın.');
-                window.location.href = 'index.html';
+                showNotification('Kayıt başarılı! Lütfen email adresinizi doğrulayın.', 'success');
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 2000);
             } catch (error) {
-                alert('Kayıt hatası: ' + error.message);
+                console.error('Kayıt hatası:', error);
+                showNotification('Kayıt işlemi başarısız: ' + error.message, 'error');
             }
         });
     }
@@ -40,4 +40,25 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.href = 'dashboard.html';
         }
     });
-}); 
+});
+
+// Kullanıcı kayıt fonksiyonunu güncelle
+async function saveUserInfo(user, name, surname) {
+    try {
+        const userData = {
+            uid: user.uid,
+            name: name,
+            surname: surname,
+            email: user.email,
+            isAdmin: user.email === 'cepyseo@outlook.com', // Admin kontrolü
+            createdAt: Date.now(),
+            lastSeen: Date.now()
+        };
+
+        await firebase.database().ref(`users/${user.uid}`).set(userData);
+        return userData;
+    } catch (error) {
+        console.error('Kullanıcı bilgileri kaydedilemedi:', error);
+        throw error;
+    }
+} 

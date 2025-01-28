@@ -2,938 +2,963 @@
 let isOnline = true;
 let userInfo = null;
 let isAdmin = false;
+let currentChatId = null;
+let isInQueue = false;
+
+// Kullanıcı bilgilerini al ve sakla - güncellendi
+async function getUserInfo(uid) {
+    try {
+        const snapshot = await firebase.database().ref(`users/${uid}`).once('value');
+        const userData = snapshot.val();
+        
+        // Eğer kullanıcı bilgileri yoksa, varsayılan bilgileri oluştur
+        if (!userData) {
+            const currentUser = firebase.auth().currentUser;
+            const defaultUserData = {
+                uid: uid,
+                name: currentUser.displayName || 'Misafir',
+                surname: '',
+                email: currentUser.email,
+                createdAt: Date.now(),
+                lastSeen: Date.now()
+            };
+
+            // Varsayılan bilgileri kaydet
+            await firebase.database().ref(`users/${uid}`).set(defaultUserData);
+            return defaultUserData;
+        }
+
+        return {
+            uid: uid,
+            name: userData.name || 'Misafir',
+            surname: userData.surname || '',
+            email: userData.email,
+            createdAt: userData.createdAt || Date.now(),
+            lastSeen: userData.lastSeen || Date.now()
+        };
+    } catch (error) {
+        console.error('Kullanıcı bilgileri alınamadı:', error);
+        // Varsayılan bilgileri döndür
+        return {
+            uid: uid,
+            name: 'Misafir',
+            surname: '',
+            email: firebase.auth().currentUser?.email || '',
+            createdAt: Date.now(),
+            lastSeen: Date.now()
+        };
+    }
+}
 
 // Sayfa yüklendiğinde çalışacak kodlar
 document.addEventListener('DOMContentLoaded', function() {
+    // Çıkış yapma işlemi
+    initializeLogout();
+    
     // Auth durumunu kontrol et
-    firebase.auth().onAuthStateChanged((user) => {
+    firebase.auth().onAuthStateChanged(async (user) => {
         if (!user) {
-            // Kullanıcı giriş yapmamışsa login sayfasına yönlendir
             window.location.href = 'index.html';
+        } else {
+            try {
+                // Kullanıcı bilgilerini al veya oluştur
+                userInfo = await getUserInfo(user.uid);
+                
+                // Admin kontrolü yap
+                await checkAndSetupAdmin();
+                
+                // Online durumunu ayarla
+                await setupOnlineStatus(user.uid);
+                
+                // Chat sistemini başlat
+                initializeChatSystem();
+                
+                // Satın al butonlarını başlat
+                initializeBuyButtons();
+            } catch (error) {
+                console.error('Başlatma hatası:', error);
+                showNotification('Sistem başlatılamadı', 'error');
+            }
         }
     });
 
-    // Çıkış yapma işlemi
+    // Sayfa kapatıldığında çevrimdışı ol
+    window.addEventListener('beforeunload', () => {
+        if (firebase.auth().currentUser) {
+            firebase.database().ref(`status/${firebase.auth().currentUser.uid}`).remove();
+            if (isInQueue) {
+                firebase.database().ref(`queue/${firebase.auth().currentUser.uid}`).remove();
+            }
+        }
+    });
+});
+
+// Çıkış işlemlerini başlat
+function initializeLogout() {
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
-        logoutBtn.addEventListener('click', function() {
-            firebase.auth().signOut().then(() => {
-                console.log('Çıkış başarılı');
-                window.location.href = 'index.html';
-            }).catch((error) => {
-                console.error('Çıkış hatası:', error);
-                alert('Çıkış yapılırken hata oluştu: ' + error.message);
-            });
-        });
-    }
-
-    // Satın alma butonu işlemi
-    const buyButton = document.querySelector('.buy-button');
-    const chatModal = document.getElementById('chatModal');
-    const closeChat = document.querySelector('.close-chat');
-    const chatMessages = document.getElementById('chatMessages');
-    const chatInput = document.getElementById('chatInput');
-    const sendMessage = document.getElementById('sendMessage');
-    const queueMessage = document.getElementById('queueMessage');
-
-    let supportAvailable = true; // Müşteri hizmetlerinin durumu
-
-    buyButton.addEventListener('click', () => {
-        chatModal.style.display = 'block';
-        checkSupportAvailability();
-    });
-
-    closeChat.addEventListener('click', () => {
-        chatModal.style.display = 'none';
-        resetChat();
-    });
-
-    function checkSupportAvailability() {
-        // Müşteri hizmetlerinin durumunu kontrol et
-        firebase.database().ref('supportStatus').once('value')
-            .then((snapshot) => {
-                supportAvailable = !snapshot.val()?.busy;
-                
-                if (supportAvailable) {
-                    // Müşteri hizmetleri müsaitse
-                    startChat();
-                } else {
-                    // Müşteri hizmetleri meşgulse
-                    queueMessage.style.display = 'block';
-                    listenForAvailability();
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                // Çevrimiçi durumunu kaldır
+                if (firebase.auth().currentUser) {
+                    await firebase.database().ref(`status/${firebase.auth().currentUser.uid}`).remove();
                 }
-            });
-    }
-
-    function startChat() {
-        queueMessage.style.display = 'none';
-        chatInput.disabled = false;
-        sendMessage.disabled = false;
-        connectSupport.style.display = 'none'; // Bağlan butonunu gizle
-        
-        // Hoşgeldin mesajını ekle
-        addMessage("Merhaba! Size nasıl yardımcı olabilirim?", 'support');
-        
-        // Chat mesajlarını dinlemeye başla
-        const userId = firebase.auth().currentUser.uid;
-        listenForMessages(userId);
-    }
-
-    function addMessage(text, type) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${type}`;
-        
-        const messageText = document.createElement('span');
-        messageText.textContent = text;
-        
-        const timeSpan = document.createElement('span');
-        timeSpan.className = 'message-time';
-        const now = new Date();
-        timeSpan.textContent = now.toLocaleTimeString('tr-TR', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-        });
-        
-        messageDiv.appendChild(messageText);
-        messageDiv.appendChild(timeSpan);
-        chatMessages.appendChild(messageDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-    function resetChat() {
-        chatMessages.innerHTML = '';
-        chatInput.value = '';
-        chatInput.disabled = true;
-        sendMessage.disabled = true;
-        queueMessage.style.display = 'none';
-    }
-
-    function listenForAvailability() {
-        const statusRef = firebase.database().ref('supportStatus');
-        statusRef.on('value', (snapshot) => {
-            if (!snapshot.val()?.busy) {
-                statusRef.off(); // Dinlemeyi durdur
-                startChat();
+                // Sıradaysa çıkar
+                if (isInQueue) {
+                    await firebase.database().ref(`queue/${firebase.auth().currentUser.uid}`).remove();
+                }
+                // Aktif görüşme varsa sonlandır
+                if (currentChatId) {
+                    await firebase.database().ref(`chats/${currentChatId}`).update({
+                        status: 'ended',
+                        endTime: Date.now()
+                    });
+                }
+                // Çıkış yap
+                await firebase.auth().signOut();
+                window.location.href = 'index.html';
+            } catch (error) {
+                console.error('Çıkış hatası:', error);
+                showNotification('Çıkış yapılırken bir hata oluştu', 'error');
             }
         });
     }
+}
 
-    sendMessage.addEventListener('click', sendChatMessage);
-    chatInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            sendChatMessage();
-        }
-    });
+// Online durumu takibi güncellenmiş hali
+async function setupOnlineStatus(uid) {
+    try {
+        const userStatusRef = firebase.database().ref(`status/${uid}`);
+        const userRef = firebase.database().ref(`users/${uid}`);
 
-    function sendChatMessage() {
-        const message = chatInput.value.trim();
-        if (message) {
-            const now = new Date();
-            addMessage(message, 'user');
-            chatInput.value = '';
-            
-            // Mesajı veritabanına kaydet
-            firebase.database().ref('chats').push({
-                message: message,
-                timestamp: now.getTime(),
-                type: 'user',
-                userId: firebase.auth().currentUser.uid
-            });
-        }
-    }
+        // Kullanıcı bilgilerini al
+        userInfo = await getUserInfo(uid);
 
-    // Müşteri hizmetleri durumunu kontrol et
-    function updateSupportStatus(isOnline) {
-        const statusDot = document.getElementById('supportStatus');
-        statusDot.className = isOnline ? 'online-status' : 'offline-status';
-    }
-
-    // Müşteri hizmetleri durumunu dinle
-    firebase.database().ref('supportStatus/online').on('value', (snapshot) => {
-        updateSupportStatus(snapshot.val());
-    });
-
-    const connectSupport = document.getElementById('connectSupport');
-    const onlineUsersCount = document.getElementById('onlineUsersCount');
-    let currentUserName = '';
-    let isInQueue = false;
-
-    // Kullanıcı bilgilerini al
-    firebase.auth().onAuthStateChanged(async (user) => {
-        if (user) {
-            if (!user.emailVerified) {
-                alert('Lütfen email adresinizi doğrulayın!');
-                await user.sendEmailVerification();
-                firebase.auth().signOut();
-                window.location.href = 'index.html';
+        firebase.database().ref('.info/connected').on('value', async (snapshot) => {
+            if (!snapshot.val()) {
+                isOnline = false;
                 return;
             }
 
-            // Kullanıcı bilgilerini getir
-            const userRef = firebase.database().ref('users/' + user.uid);
-            const snapshot = await userRef.once('value');
-            userInfo = snapshot.val();
-            currentUserName = `${userInfo.name} ${userInfo.surname}`;
-
-            // Online durumunu ayarla
-            const userStatusRef = firebase.database().ref('status/' + user.uid);
+            isOnline = true;
             
-            // Çevrimiçi durumunu güncelle
-            const isOnlineRef = firebase.database().ref('.info/connected');
-            isOnlineRef.on('value', (snapshot) => {
-                if (snapshot.val()) {
-                    userStatusRef.onDisconnect().remove();
-                    userStatusRef.set({
-                        online: true,
-                        lastSeen: firebase.database.ServerValue.TIMESTAMP,
-                        userInfo: {
-                            name: userInfo.name,
-                            surname: userInfo.surname,
-                            email: userInfo.email
-                        }
-                    });
+            // Çıkış yapıldığında durumu güncelle
+            await userStatusRef.onDisconnect().remove();
+            
+            // Online durumunu güncelle
+            await userStatusRef.set({
+                online: true,
+                lastSeen: firebase.database.ServerValue.TIMESTAMP,
+                userInfo: {
+                    name: userInfo.name,
+                    surname: userInfo.surname,
+                    email: userInfo.email
                 }
             });
 
-            // Admin kontrolü
-            isAdmin = user.email === 'cepyseo@outlook.com';
-            
-            // Admin panelini göster
-            if (isAdmin) {
-                showAdminPanel();
-            }
-        } else {
-            window.location.href = 'index.html';
-        }
-    });
-
-    // Sıradaki kullanıcı sayısını güncelle
-    function updateQueueCount() {
-        const queueRef = firebase.database().ref('queue');
-        queueRef.on('value', (snapshot) => {
-            const queue = snapshot.val() || {};
-            const count = Object.keys(queue).length;
-            onlineUsersCount.textContent = count;
+            // Kullanıcı bilgilerini güncelle
+            await userRef.update({
+                lastSeen: firebase.database.ServerValue.TIMESTAMP,
+                lastActive: new Date().toISOString()
+            });
         });
+    } catch (error) {
+        console.error('Online durum ayarlanamadı:', error);
+        showNotification('Bağlantı hatası oluştu', 'error');
     }
+}
 
-    // Müşteri hizmetlerine bağlanma butonu
-    connectSupport.addEventListener('click', () => {
-        if (!isOnline) {
-            alert('İnternet bağlantınız yok! Lütfen bağlantınızı kontrol edin.');
-            return;
-        }
-
-        const userId = firebase.auth().currentUser.uid;
-        
-        // Ban kontrolü
-        firebase.database().ref('bannedUsers/' + userId).once('value')
-            .then((snapshot) => {
-                if (snapshot.val()) {
-                    alert('Hesabınız engellenmiş durumda!');
-                    return;
-                }
+// Satın al butonlarını başlat
+function initializeBuyButtons() {
+    const buyButton = document.querySelector('.buy-button');
+    const chatModal = document.getElementById('chatModal');
+    
+    if (buyButton) {
+        buyButton.addEventListener('click', () => {
+            // Chat modalını göster
+            if (chatModal) {
+                // Modal'ı görünür yap
+                chatModal.style.display = 'block';
                 
-                // Normal sıraya girme işlemleri...
-                addToQueue(userId);
-            });
-    });
+                // Chat mesajlarını hazırla
+                const chatMessages = document.getElementById('chatMessages');
+                if (chatMessages) {
+                    // Hoşgeldin mesajını göster
+                    chatMessages.innerHTML = `
+                        <div class="welcome-message">
+                            <h4>ClonicPass Müşteri Hizmetleri</h4>
+                            <p>Size nasıl yardımcı olabiliriz?</p>
+                        </div>
+                        <div class="chat-connect-container">
+                            <div class="online-users-info">
+                                <i class="fas fa-circle online-indicator"></i>
+                                <span>Müşteri temsilcilerimiz hazır</span>
+                            </div>
+                            <button id="connectSupport" class="connect-support-btn">
+                                <i class="fas fa-headset"></i>
+                                Görüşmeyi Başlat
+                            </button>
+                        </div>
+                    `;
 
-    // Sıra durumunu dinleme fonksiyonu
-    function listenForQueue(userId) {
-        const queueRef = firebase.database().ref('queue');
-        queueRef.on('value', (snapshot) => {
-            const queue = snapshot.val() || {};
-            const queueArray = Object.entries(queue);
-            
-            // Sıradaki pozisyonunu bul
-            const position = queueArray.findIndex(([key]) => key === userId) + 1;
-            
-            if (position > 0) {
-                connectSupport.textContent = `Sıra Pozisyonunuz: ${position}`;
-            } else {
-                // Kullanıcı sırada değilse ve supportStatus.currentUser bu kullanıcıysa
-                firebase.database().ref('supportStatus').once('value')
-                    .then((statusSnapshot) => {
-                        const status = statusSnapshot.val() || {};
-                        if (status.currentUser === userId) {
-                            startChat();
-                            queueRef.off(); // Dinlemeyi durdur
-                        }
-                    });
-            }
-        });
-    }
-
-    // Mesajları dinleme fonksiyonu
-    function listenForMessages(userId) {
-        const chatRef = firebase.database().ref('chats/' + userId);
-        chatRef.on('child_added', (snapshot) => {
-            const message = snapshot.val();
-            if (message.type !== 'user') { // Sadece karşı tarafın mesajlarını göster
-                addMessage(message.message, message.type);
-            }
-        });
-    }
-
-    // Chat sonlandığında
-    function endChat() {
-        const userId = firebase.auth().currentUser.uid;
-        
-        // Durumu güncelle
-        firebase.database().ref('supportStatus').update({
-            busy: false,
-            currentUser: null
-        });
-        
-        // Sıradan sonraki kullanıcıyı al
-        firebase.database().ref('queue').orderByChild('timestamp').limitToFirst(1).once('value')
-            .then((snapshot) => {
-                const nextInQueue = snapshot.val();
-                if (nextInQueue) {
-                    const nextUserId = Object.keys(nextInQueue)[0];
-                    // Sıradan çıkar
-                    firebase.database().ref('queue').child(nextUserId).remove();
+                    // Bağlan butonunu aktifleştir
+                    const connectSupport = document.getElementById('connectSupport');
+                    if (connectSupport) {
+                        connectSupport.style.display = 'block';
+                        connectSupport.disabled = false;
+                        
+                        // Bağlan butonuna tıklama olayı ekle
+                        connectSupport.addEventListener('click', async () => {
+                            try {
+                                // Müşteri hizmetleri durumunu kontrol et
+                                const status = await checkSupportAvailability();
+                                if (status.available) {
+                                    // Chat'i başlat
+                                    await startChat();
+                                    
+                                    // Chat input alanını aktifleştir
+                                    const chatInput = document.getElementById('chatInput');
+                                    const sendMessage = document.getElementById('sendMessage');
+                                    if (chatInput) {
+                                        chatInput.disabled = false;
+                                        chatInput.placeholder = 'Mesajınızı yazın...';
+                                        chatInput.focus();
+                                    }
+                                    if (sendMessage) sendMessage.disabled = false;
+                                    
+                                    // Bağlan butonunu gizle
+                                    connectSupport.style.display = 'none';
+                                } else {
+                                    // Sıraya al
+                                    await addToQueue();
+                                    
+                                    // Sıra mesajını göster
+                                    const queueMessage = document.getElementById('queueMessage');
+                                    if (queueMessage) {
+                                        queueMessage.style.display = 'block';
+                                        queueMessage.innerHTML = `
+                                            <div class="queue-info">
+                                                <i class="fas fa-clock"></i>
+                                                <p>Müşteri temsilcilerimiz şu an meşgul.</p>
+                                                <p>Sıradaki pozisyonunuz: <span id="queuePosition">1</span></p>
+                                            </div>
+                                            <div class="queue-loader"></div>
+                                        `;
+                                    }
+                                }
+                            } catch (error) {
+                                console.error('Bağlantı hatası:', error);
+                                showNotification('Bağlantı kurulamadı', 'error');
+                            }
+                        });
+                    }
                 }
-            });
+            }
+        });
     }
 
-    updateQueueCount();
+    // Chat kapatma butonunu aktifleştir
+    const closeChat = document.querySelector('.close-chat');
+    if (closeChat) {
+        closeChat.addEventListener('click', () => {
+            if (currentChatId) {
+                if (confirm('Görüşmeyi sonlandırmak istediğinize emin misiniz?')) {
+                    endChat();
+                    chatModal.style.display = 'none';
+                }
+            } else {
+                chatModal.style.display = 'none';
+            }
+        });
+    }
+}
 
-    // Admin paneli
-    function showAdminPanel() {
+// Müşteri hizmetleri durumunu güncelle
+function updateSupportStatus(status) {
+    const statusElement = document.getElementById('supportStatus');
+    const connectButton = document.getElementById('connectSupport');
+    const queueMessage = document.getElementById('queueMessage');
+    
+    if (statusElement) {
+        statusElement.className = 'online-status';
+        statusElement.classList.add(status.available ? 'online' : 'offline');
+    }
+
+    if (connectButton) {
+        connectButton.disabled = !status.available;
+        connectButton.textContent = status.available ? 
+            'Müşteri Hizmetlerine Bağlan' : 
+            'Müşteri Hizmetleri Meşgul';
+    }
+
+    if (queueMessage) {
+        queueMessage.style.display = status.available ? 'none' : 'block';
+    }
+}
+
+// Chat sistemini başlat - güncellendi
+function initializeChatSystem() {
+    const connectButton = document.getElementById('connectSupport');
+    const chatInput = document.getElementById('chatInput');
+    const sendButton = document.getElementById('sendMessage');
+
+    if (connectButton) {
+        connectButton.addEventListener('click', async () => {
+            try {
+                // Müşteri hizmetleri durumunu kontrol et
+                const status = await checkSupportAvailability();
+                
+                if (status.available) {
+                    // Chat'i başlat
+                    const chatId = await startChat();
+                    
+                    // Chat arayüzünü hazırla
+                    const chatMessages = document.getElementById('chatMessages');
+                    if (chatMessages) {
+                        chatMessages.innerHTML = `
+                            <div class="chat-header">
+                                <div class="chat-status">
+                                    <i class="fas fa-circle online"></i>
+                                    <span>Bağlandı</span>
+                                </div>
+                            </div>
+                            <div class="messages-container"></div>
+                        `;
+                    }
+
+                    // Input alanını aktifleştir
+                    if (chatInput) {
+                        chatInput.disabled = false;
+                        chatInput.placeholder = 'Mesajınızı yazın...';
+                        chatInput.focus();
+                    }
+                    if (sendButton) {
+                        sendButton.disabled = false;
+                    }
+
+                    // Bağlan butonunu gizle
+                    connectButton.style.display = 'none';
+
+                    // Mesajları dinlemeye başla
+                    listenToMessages();
+
+                } else {
+                    await addToQueue();
+                }
+            } catch (error) {
+                console.error('Chat başlatma hatası:', error);
+                showNotification('Bağlantı kurulamadı', 'error');
+            }
+        });
+    }
+
+    // Enter ile mesaj gönderme
+    if (chatInput) {
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendChatMessage();
+            }
+        });
+    }
+
+    // Gönder butonu ile mesaj gönderme
+    if (sendButton) {
+        sendButton.addEventListener('click', () => {
+            sendChatMessage();
+        });
+    }
+}
+
+// Chat başlatma fonksiyonu - güncellendi
+async function startChat() {
+    try {
+        // Yeni chat oluştur
+        const chatRef = firebase.database().ref('chats').push();
+        const chatId = chatRef.key;
+        
+        // Chat verilerini kaydet
+        await chatRef.set({
+            userId: userInfo.uid,
+            userInfo: {
+                name: userInfo.name,
+                surname: userInfo.surname,
+                email: userInfo.email
+            },
+            startTime: Date.now(),
+            status: 'active',
+            messages: {}
+        });
+
+        // Chat ID'yi sakla
+        currentChatId = chatId;
+
+        // Support durumunu güncelle
+        await firebase.database().ref('supportStatus').update({
+            busy: true,
+            currentUser: userInfo.uid
+        });
+
+        return chatId;
+    } catch (error) {
+        console.error('Chat başlatma hatası:', error);
+        throw error;
+    }
+}
+
+// Müşteri hizmetleri durumu kontrolü - güncellendi
+async function checkSupportAvailability() {
+    try {
+        const statusSnapshot = await firebase.database().ref('supportStatus').once('value');
+        const status = statusSnapshot.val() || {};
+        
+        // Admin online durumunu kontrol et
+        const adminSnapshot = await firebase.database().ref('users').orderByChild('isAdmin').equalTo(true).once('value');
+        const admins = adminSnapshot.val() || {};
+        const isAdminOnline = Object.values(admins).some(admin => admin.online);
+
+        return {
+            available: isAdminOnline && !status.busy,
+            currentUser: status.currentUser,
+            queueLength: status.queueLength || 0
+        };
+    } catch (error) {
+        console.error('Durum kontrolü hatası:', error);
+        return { available: false, queueLength: 0 };
+    }
+}
+
+// Mesaj gönderme
+async function sendChatMessage(message) {
+    if (!currentChatId) return;
+    
+    // Eğer message parametresi yoksa, input'tan al
+    if (!message) {
+        const chatInput = document.getElementById('chatInput');
+        if (!chatInput || !chatInput.value.trim()) return;
+        message = chatInput.value.trim();
+        chatInput.value = '';
+    }
+
+    try {
+        await firebase.database().ref(`chats/${currentChatId}/messages`).push({
+            sender: firebase.auth().currentUser.uid,
+            message: message,
+            timestamp: Date.now(),
+            type: isAdmin ? 'admin' : 'user',
+            senderName: userInfo.name
+        });
+
+        // Mesajı görüntüle
+        displayMessage({
+            sender: firebase.auth().currentUser.uid,
+            message: message,
+            timestamp: Date.now(),
+            type: isAdmin ? 'admin' : 'user',
+            senderName: userInfo.name
+        });
+
+    } catch (error) {
+        console.error('Mesaj gönderme hatası:', error);
+        showNotification('Mesaj gönderilemedi', 'error');
+    }
+}
+
+// Mesaj görüntüleme fonksiyonunu güncelle
+function displayMessage(message) {
+    const messagesContainer = document.querySelector('.messages-container');
+    if (!messagesContainer) return;
+
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${message.type}`;
+    
+    const time = new Date(message.timestamp).toLocaleTimeString();
+    
+    messageDiv.innerHTML = `
+        <div class="message-header">
+            <span class="sender-name">${message.senderName}</span>
+            <span class="message-time">${time}</span>
+        </div>
+        <div class="message-content">${message.message}</div>
+    `;
+    
+    messagesContainer.appendChild(messageDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+// Chat dinleme fonksiyonunu güncelle
+function listenToMessages() {
+    if (!currentChatId) return;
+
+    // Önceki dinleyiciyi temizle
+    firebase.database().ref(`chats/${currentChatId}/messages`).off();
+
+    // Yeni mesajları dinle
+    firebase.database().ref(`chats/${currentChatId}/messages`)
+        .orderByChild('timestamp')
+        .on('child_added', (snapshot) => {
+            const message = snapshot.val();
+            if (message && message.timestamp > Date.now() - 1000) { // Son 1 saniyedeki mesajları göster
+                displayMessage(message);
+            }
+        });
+}
+
+// Bildirim göster
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.innerHTML = `
+        <div class="notification-content">
+            <i class="fas ${getNotificationIcon(type)}"></i>
+            <span>${message}</span>
+        </div>
+        <button onclick="this.parentElement.remove()">&times;</button>
+    `;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => notification.remove(), 5000);
+}
+
+// Yardımcı fonksiyonlar
+function getNotificationIcon(type) {
+    const icons = {
+        success: 'fa-check-circle',
+        error: 'fa-exclamation-circle',
+        warning: 'fa-exclamation-triangle',
+        info: 'fa-info-circle'
+    };
+    return icons[type] || icons.info;
+}
+
+// Admin paneli başlatma
+function initializeAdminPanel() {
+    const user = firebase.auth().currentUser;
+    if (user && user.email === 'cepyseo@outlook.com') {
+        isAdmin = true;
+        
+        // Admin panelini oluştur
         const adminPanel = document.createElement('div');
         adminPanel.className = 'admin-panel';
         adminPanel.innerHTML = `
-            <h3>Yönetici Paneli</h3>
-            <div class="admin-controls">
-                <button id="viewUsers">Kullanıcıları Görüntüle</button>
-                <button id="viewQueue">Sıradaki Kullanıcılar</button>
-                <div id="userList" class="user-list"></div>
-            </div>
-        `;
-        document.body.appendChild(adminPanel);
-
-        // Admin kontrolleri
-        document.getElementById('viewUsers').addEventListener('click', showUserList);
-        document.getElementById('viewQueue').addEventListener('click', showQueueList);
-    }
-
-    // Kullanıcı listesi
-    function showUserList() {
-        const userList = document.getElementById('userList');
-        firebase.database().ref('users').on('value', (snapshot) => {
-            const users = snapshot.val();
-            let html = '<h4>Kayıtlı Kullanıcılar</h4>';
-            
-            for (let uid in users) {
-                const user = users[uid];
-                html += `
-                    <div class="user-item">
-                        <span>${user.name} ${user.surname} (${user.email})</span>
-                        <button onclick="banUser('${uid}')">Banla</button>
-                        <button onclick="muteUser('${uid}')">Sustur</button>
+            <div class="admin-sidebar">
+                <div class="admin-profile">
+                    <div class="admin-avatar">
+                        <i class="fas fa-user-shield"></i>
                     </div>
-                `;
-            }
-            userList.innerHTML = html;
-        });
-    }
-
-    // Sıra yönetimi güncellemesi
-    function updateQueue() {
-        const queueRef = firebase.database().ref('queue');
-        queueRef.orderByChild('timestamp').on('value', (snapshot) => {
-            const queue = snapshot.val() || {};
-            const onlineUsers = {};
-            
-            // Önce online kullanıcıları kontrol et
-            Object.entries(queue).forEach(([userId, userData]) => {
-                firebase.database().ref('status/' + userId).once('value')
-                    .then((statusSnapshot) => {
-                        if (statusSnapshot.val()?.online) {
-                            onlineUsers[userId] = userData;
-                        } else {
-                            // Çevrimdışı kullanıcıyı sıradan çıkar
-                            queueRef.child(userId).remove();
-                        }
-                    });
-            });
-
-            // Sıra bilgisini güncelle
-            updateQueueDisplay(onlineUsers);
-        });
-    }
-
-    // Admin için sıra yönetimi
-    function showQueueList() {
-        if (!isAdmin) return;
-
-        const queueList = document.getElementById('userList');
-        firebase.database().ref('queue').on('value', (snapshot) => {
-            const queue = snapshot.val();
-            let html = '<h4>Sıradaki Kullanıcılar</h4>';
-            
-            Object.entries(queue || {}).forEach(([userId, data]) => {
-                html += `
-                    <div class="queue-item">
-                        <span>${data.userInfo.name} ${data.userInfo.surname}</span>
-                        <span>${data.userInfo.email}</span>
-                        <button onclick="removeFromQueue('${userId}')">Sıradan Çıkar</button>
+                    <div class="admin-info">
+                        <h4>Admin Panel</h4>
+                        <span class="admin-status">Online</span>
                     </div>
-                `;
-            });
-            queueList.innerHTML = html;
-        });
-    }
-
-    // Admin fonksiyonları
-    window.banUser = function(uid) {
-        if (!isAdmin) return;
-        firebase.database().ref('bannedUsers/' + uid).set(true);
-        firebase.database().ref('queue/' + uid).remove();
-    };
-
-    window.muteUser = function(uid) {
-        if (!isAdmin) return;
-        firebase.database().ref('mutedUsers/' + uid).set(true);
-    };
-
-    window.removeFromQueue = function(uid) {
-        if (!isAdmin) return;
-        firebase.database().ref('queue/' + uid).remove();
-    };
-
-    // Sıraya girme işlemi güncellemesi
-    function addToQueue(userId) {
-        const queueRef = firebase.database().ref('queue');
-        
-        // Önce mevcut durumu kontrol et
-        firebase.database().ref('supportStatus').once('value')
-            .then((snapshot) => {
-                const status = snapshot.val() || {};
-                
-                if (!status.busy) {
-                    // Müşteri hizmetleri müsaitse direkt bağlan
-                    startChat();
-                    // Meşgul durumunu güncelle
-                    firebase.database().ref('supportStatus').update({
-                        busy: true,
-                        currentUser: userId
-                    });
-                } else {
-                    // Sıraya ekle
-                    queueRef.child(userId).set({
-                        name: currentUserName,
-                        email: firebase.auth().currentUser.email,
-                        timestamp: Date.now()
-                    });
-
-                    isInQueue = true;
-                    connectSupport.textContent = 'Sıradasınız...';
-                    connectSupport.disabled = true;
-                    
-                    // Sıra durumunu dinle
-                    listenForQueue(userId);
-                }
-            });
-    }
-});
-
-// Müşteri hizmetleri için yeni fonksiyonlar
-function initializeCustomerSupport() {
-    const chatContainer = document.querySelector('.chat-container');
-    const userInfoPanel = document.createElement('div');
-    userInfoPanel.className = 'user-info-panel';
-    
-    // Kullanıcı bilgileri paneli
-    function updateUserInfoPanel() {
-        userInfoPanel.innerHTML = `
-            <div class="user-details">
-                <div class="user-avatar">${userInfo.name[0]}${userInfo.surname[0]}</div>
-                <div class="user-info">
-                    <h4>${userInfo.name} ${userInfo.surname}</h4>
-                    <p>${userInfo.email}</p>
-                    <span class="connection-status ${isOnline ? 'online' : 'offline'}">
-                        ${isOnline ? 'Çevrimiçi' : 'Çevrimdışı'}
-                    </span>
                 </div>
-            </div>
-            ${isAdmin ? `
-                <div class="admin-controls">
-                    <button onclick="showQueueManagement()">Sıra Yönetimi</button>
-                    <button onclick="showUserManagement()">Kullanıcı Yönetimi</button>
-                    <button onclick="showChatHistory()">Sohbet Geçmişi</button>
-                </div>
-            ` : ''}
-        `;
-    }
-
-    // İnternet bağlantısı kontrolü
-    function checkConnection() {
-        const updateOnlineStatus = () => {
-            isOnline = navigator.onLine;
-            updateUserInfoPanel();
-            
-            if (!isOnline && isInQueue) {
-                removeFromQueue(firebase.auth().currentUser.uid);
-            }
-        };
-
-        window.addEventListener('online', updateOnlineStatus);
-        window.addEventListener('offline', updateOnlineStatus);
-    }
-
-    // Sıra yönetimi geliştirmeleri
-    function initializeQueueSystem() {
-        const queueRef = firebase.database().ref('queue');
-        
-        // LocalStorage'dan sıra pozisyonunu kontrol et
-        const savedQueuePosition = localStorage.getItem('queuePosition');
-        if (savedQueuePosition) {
-            const position = JSON.parse(savedQueuePosition);
-            if (position.timestamp > Date.now() - 3600000) { // 1 saat geçerli
-                addToQueue(position.userId, position.timestamp);
-            } else {
-                localStorage.removeItem('queuePosition');
-            }
-        }
-
-        // Sıra değişikliklerini dinle
-        queueRef.on('value', (snapshot) => {
-            const queue = snapshot.val() || {};
-            const onlineUsers = Object.entries(queue).filter(([_, data]) => {
-                return data.online === true;
-            });
-            
-            onlineUsersCount.textContent = onlineUsers.length;
-            
-            // Sıra pozisyonunu güncelle
-            if (isInQueue) {
-                const position = onlineUsers.findIndex(([key]) => key === firebase.auth().currentUser.uid) + 1;
-                updateQueuePosition(position);
-            }
-        });
-    }
-
-    // Admin fonksiyonları
-    if (isAdmin) {
-        function showQueueManagement() {
-            const modal = document.createElement('div');
-            modal.className = 'admin-modal';
-            modal.innerHTML = `
-                <div class="modal-content">
-                    <h3>Sıra Yönetimi</h3>
-                    <div class="queue-list"></div>
-                </div>
-            `;
-            document.body.appendChild(modal);
-
-            // Sıradaki kullanıcıları listele
-            updateQueueList();
-        }
-
-        function showUserManagement() {
-            // Kullanıcı yönetimi modalı
-            const modal = document.createElement('div');
-            modal.className = 'admin-modal';
-            modal.innerHTML = `
-                <div class="modal-content">
-                    <h3>Kullanıcı Yönetimi</h3>
-                    <div class="user-list"></div>
-                </div>
-            `;
-            document.body.appendChild(modal);
-
-            // Kullanıcıları listele
-            updateUserList();
-        }
-
-        // Admin işlemleri
-        function banUser(uid) {
-            firebase.database().ref(`bannedUsers/${uid}`).set(true);
-            removeFromQueue(uid);
-            alert('Kullanıcı engellendi.');
-        }
-
-        function muteUser(uid) {
-            firebase.database().ref(`mutedUsers/${uid}`).set(true);
-            alert('Kullanıcı susturuldu.');
-        }
-    }
-
-    // Initialize
-    updateUserInfoPanel();
-    checkConnection();
-    initializeQueueSystem();
-    chatContainer.insertBefore(userInfoPanel, chatContainer.firstChild);
-}
-
-// Kullanıcı listesi ve sıra yönetimi için fonksiyonlar
-function initializeUserManagement() {
-    const chatContainer = document.querySelector('.chat-container');
-    const userListDiv = document.createElement('div');
-    userListDiv.className = 'user-list-container';
-    
-    // Kullanıcı listesini güncelle
-    function updateUserList() {
-        firebase.database().ref('users').on('value', (snapshot) => {
-            const users = snapshot.val() || {};
-            userListDiv.innerHTML = `
-                <div class="user-list-header">
-                    <h3>Aktif Kullanıcılar</h3>
-                    ${isAdmin ? '<button onclick="toggleUserManagement()">Yönet</button>' : ''}
-                </div>
-                <div class="user-list">
-                    ${Object.entries(users).map(([uid, user]) => `
-                        <div class="user-item ${user.online ? 'online' : 'offline'}">
-                            <div class="user-info">
-                                <span class="user-name">${user.name} ${user.surname}</span>
-                                <span class="user-email">${user.email}</span>
-                                <span class="user-status">${user.online ? 'Çevrimiçi' : 'Çevrimdışı'}</span>
-                            </div>
-                            ${isAdmin && user.email !== 'cepyseo@outlook.com' ? `
-                                <div class="user-actions">
-                                    <button onclick="banUser('${uid}')" class="ban-btn">Engelle</button>
-                                    <button onclick="muteUser('${uid}')" class="mute-btn">Sustur</button>
-                                    <button onclick="removeFromQueue('${uid}')" class="remove-btn">Sıradan Çıkar</button>
-                                </div>
-                            ` : ''}
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-        });
-    }
-
-    // Sıra yönetimi
-    function initializeQueue() {
-        const queueDiv = document.createElement('div');
-        queueDiv.className = 'queue-container';
-        
-        firebase.database().ref('queue').on('value', (snapshot) => {
-            const queue = snapshot.val() || {};
-            const onlineUsers = Object.entries(queue).filter(([_, data]) => data.online);
-            
-            queueDiv.innerHTML = `
-                <div class="queue-header">
-                    <h3>Sıradaki Kullanıcılar (${onlineUsers.length})</h3>
-                </div>
-                <div class="queue-list">
-                    ${onlineUsers.map(([uid, data], index) => `
-                        <div class="queue-item">
-                            <span class="queue-position">#${index + 1}</span>
-                            <div class="queue-user-info">
-                                <span class="user-name">${data.name}</span>
-                                <span class="user-email">${data.email}</span>
-                            </div>
-                            ${isAdmin ? `
-                                <button onclick="removeFromQueue('${uid}')" class="remove-btn">
-                                    Sıradan Çıkar
-                                </button>
-                            ` : ''}
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-        });
-
-        return queueDiv;
-    }
-
-    // Admin kontrolleri
-    if (firebase.auth().currentUser?.email === 'cepyseo@outlook.com') {
-        isAdmin = true;
-        const adminControls = document.createElement('div');
-        adminControls.className = 'admin-controls';
-        adminControls.innerHTML = `
-            <button onclick="showQueueManagement()">Sıra Yönetimi</button>
-            <button onclick="showUserManagement()">Kullanıcı Yönetimi</button>
-        `;
-        chatContainer.insertBefore(adminControls, chatContainer.firstChild);
-    }
-
-    // Kullanıcı listesi ve sırayı ekle
-    chatContainer.insertBefore(userListDiv, chatContainer.firstChild);
-    chatContainer.insertBefore(initializeQueue(), chatContainer.firstChild);
-
-    // İlk yükleme
-    updateUserList();
-}
-
-// Admin fonksiyonları
-window.banUser = function(uid) {
-    if (!isAdmin) return;
-    
-    firebase.database().ref(`bannedUsers/${uid}`).set(true)
-        .then(() => {
-            removeFromQueue(uid);
-            alert('Kullanıcı engellendi.');
-        })
-        .catch(error => {
-            console.error('Ban hatası:', error);
-            alert('Kullanıcı engellenirken bir hata oluştu.');
-        });
-};
-
-window.muteUser = function(uid) {
-    if (!isAdmin) return;
-    
-    firebase.database().ref(`mutedUsers/${uid}`).set(true)
-        .then(() => {
-            alert('Kullanıcı susturuldu.');
-        })
-        .catch(error => {
-            console.error('Mute hatası:', error);
-            alert('Kullanıcı susturulurken bir hata oluştu.');
-        });
-};
-
-window.removeFromQueue = function(uid) {
-    if (!isAdmin) return;
-    
-    firebase.database().ref(`queue/${uid}`).remove()
-        .then(() => {
-            alert('Kullanıcı sıradan çıkarıldı.');
-        })
-        .catch(error => {
-            console.error('Sıradan çıkarma hatası:', error);
-            alert('Kullanıcı sıradan çıkarılırken bir hata oluştu.');
-        });
-};
-
-// Sayfa yüklendiğinde başlat
-document.addEventListener('DOMContentLoaded', () => {
-    initializeUserManagement();
-});
-
-// Admin paneli ve kullanıcı yönetimi için gelişmiş fonksiyonlar
-function initializeAdminPanel() {
-    firebase.auth().onAuthStateChanged((user) => {
-        if (user && user.email === 'cepyseo@outlook.com') {
-            isAdmin = true;
-            const adminContainer = document.createElement('div');
-            adminContainer.className = 'admin-container';
-            adminContainer.innerHTML = `
-                <div class="admin-panel">
-                    <h3>Admin Kontrol Paneli</h3>
-                    <div class="admin-stats">
-                        <div class="stat-item">
-                            <span class="stat-label">Online Kullanıcılar</span>
+                <div class="admin-stats">
+                    <div class="stat-item">
+                        <i class="fas fa-users"></i>
+                        <div class="stat-details">
                             <span class="stat-value" id="onlineUsersCount">0</span>
+                            <span class="stat-label">Online</span>
                         </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Bekleyen Kullanıcılar</span>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-clock"></i>
+                        <div class="stat-details">
                             <span class="stat-value" id="queueCount">0</span>
+                            <span class="stat-label">Sırada</span>
                         </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Toplam Görüşme</span>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-chart-line"></i>
+                        <div class="stat-details">
                             <span class="stat-value" id="totalChats">0</span>
+                            <span class="stat-label">Görüşme</span>
                         </div>
                     </div>
-                    <div class="admin-buttons">
-                        <button onclick="toggleUserList()" class="admin-btn">
-                            <i class="fas fa-users"></i> Kullanıcılar
-                        </button>
-                        <button onclick="toggleQueueList()" class="admin-btn">
-                            <i class="fas fa-list"></i> Sıra Yönetimi
-                        </button>
-                        <button onclick="showChatHistory()" class="admin-btn">
-                            <i class="fas fa-history"></i> Görüşme Geçmişi
-                        </button>
-                        <button onclick="toggleSystemStatus()" class="admin-btn">
-                            <i class="fas fa-cog"></i> Sistem Durumu
-                        </button>
-                    </div>
-                    <div id="adminContent" class="admin-content"></div>
                 </div>
-            `;
-            document.querySelector('.dashboard-container').appendChild(adminContainer);
-            initializeAdminStats();
+                <div class="admin-actions">
+                    <button onclick="toggleUserList()" class="admin-btn">
+                        <i class="fas fa-users"></i> Kullanıcılar
+                    </button>
+                    <button onclick="toggleQueueList()" class="admin-btn">
+                        <i class="fas fa-list"></i> Sıra
+                    </button>
+                    <button onclick="toggleSystemStatus()" class="admin-btn">
+                        <i class="fas fa-cog"></i> Sistem
+                    </button>
+                    <button onclick="showAnalytics()" class="admin-btn">
+                        <i class="fas fa-chart-bar"></i> Analitik
+                    </button>
+                </div>
+            </div>
+            <div class="admin-content" id="adminContent"></div>
+        `;
+        
+        // Admin panelini sayfaya ekle
+        const container = document.querySelector('.dashboard-container');
+        if (container) {
+            container.insertBefore(adminPanel, container.firstChild);
+            updateAdminStats();
+            initializeAnalytics();
         }
-    });
+    }
 }
 
-// Admin istatistiklerini güncelle
-function initializeAdminStats() {
-    const statsRef = firebase.database().ref('statistics');
-    
-    // Online kullanıcı sayısını takip et
+// İstatistikleri güncelle
+function updateAdminStats() {
+    if (!isAdmin) return;
+
+    // Online kullanıcıları say
     firebase.database().ref('status').on('value', (snapshot) => {
         const users = snapshot.val() || {};
         const onlineCount = Object.values(users).filter(user => user.online).length;
-        document.getElementById('onlineUsersCount').textContent = onlineCount;
+        const element = document.getElementById('onlineUsersCount');
+        if (element) element.textContent = onlineCount;
     });
 
-    // Sıradaki kullanıcı sayısını takip et
+    // Sıradaki kullanıcıları say
     firebase.database().ref('queue').on('value', (snapshot) => {
         const queue = snapshot.val() || {};
-        document.getElementById('queueCount').textContent = Object.keys(queue).length;
-    });
-
-    // Toplam görüşme sayısını takip et
-    statsRef.child('totalChats').on('value', (snapshot) => {
-        document.getElementById('totalChats').textContent = snapshot.val() || 0;
+        const element = document.getElementById('queueCount');
+        if (element) element.textContent = Object.keys(queue).length;
     });
 }
 
-// Kullanıcı listesi görüntüleme geliştirmesi
-window.toggleUserList = function() {
-    const adminContent = document.getElementById('adminContent');
-    
-    firebase.database().ref('users').once('value')
-        .then((snapshot) => {
-            const users = snapshot.val() || {};
-            let html = `
-                <div class="user-management">
-                    <div class="section-header">
-                        <h4>Kullanıcı Yönetimi</h4>
-                        <div class="search-box">
-                            <input type="text" id="userSearch" placeholder="Kullanıcı ara...">
-                            <select id="userFilter">
-                                <option value="all">Tümü</option>
-                                <option value="online">Çevrimiçi</option>
-                                <option value="offline">Çevrimdışı</option>
-                                <option value="banned">Engellenenler</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="user-list">
-            `;
-            
-            Object.entries(users).forEach(([uid, user]) => {
-                html += `
-                    <div class="user-item" data-uid="${uid}">
-                        <div class="user-avatar">
-                            ${user.name[0]}${user.surname[0]}
-                        </div>
-                        <div class="user-info">
-                            <span class="user-name">${user.name} ${user.surname}</span>
-                            <span class="user-email">${user.email}</span>
-                            <span class="user-status ${user.online ? 'online' : 'offline'}">
-                                ${user.online ? 'Çevrimiçi' : 'Çevrimdışı'}
-                            </span>
-                        </div>
-                        <div class="user-actions">
-                            <button onclick="viewUserDetails('${uid}')" class="detail-btn">
-                                <i class="fas fa-info-circle"></i>
-                            </button>
-                            <button onclick="banUser('${uid}')" class="ban-btn">
-                                <i class="fas fa-ban"></i>
-                            </button>
-                            <button onclick="muteUser('${uid}')" class="mute-btn">
-                                <i class="fas fa-microphone-slash"></i>
-                            </button>
-                            <button onclick="removeFromQueue('${uid}')" class="remove-btn">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                    </div>
-                `;
+// Eksik fonksiyonları ekleyelim
+async function checkIfBanned(uid) {
+    const snapshot = await firebase.database().ref(`bannedUsers/${uid}`).once('value');
+    return snapshot.exists();
+}
+
+// Admin kontrolü ve yetkilendirme
+async function checkAndSetupAdmin() {
+    const user = firebase.auth().currentUser;
+    if (user && user.email === 'cepyseo@outlook.com') {
+        try {
+            // Admin olarak işaretle
+            await firebase.database().ref(`users/${user.uid}`).update({
+                isAdmin: true,
+                adminSince: Date.now()
             });
             
-            html += `</div></div>`;
-            adminContent.innerHTML = html;
+            // Admin durumunu local değişkende sakla
+            isAdmin = true;
             
-            // Arama ve filtreleme işlevselliğini ekle
-            initializeUserSearch();
-        });
-};
-
-// Kullanıcı arama ve filtreleme
-function initializeUserSearch() {
-    const searchInput = document.getElementById('userSearch');
-    const filterSelect = document.getElementById('userFilter');
-    const userItems = document.querySelectorAll('.user-item');
-
-    function filterUsers() {
-        const searchTerm = searchInput.value.toLowerCase();
-        const filterValue = filterSelect.value;
-
-        userItems.forEach(item => {
-            const userName = item.querySelector('.user-name').textContent.toLowerCase();
-            const userEmail = item.querySelector('.user-email').textContent.toLowerCase();
-            const userStatus = item.querySelector('.user-status').classList.contains('online');
+            // Admin panelini başlat
+            initializeAdminPanel();
             
-            let showUser = (userName.includes(searchTerm) || userEmail.includes(searchTerm));
-            
-            if (filterValue === 'online') showUser = showUser && userStatus;
-            if (filterValue === 'offline') showUser = showUser && !userStatus;
-            
-            item.style.display = showUser ? 'flex' : 'none';
-        });
+            console.log('Admin yetkileri ayarlandı');
+        } catch (error) {
+            console.error('Admin yetkilendirme hatası:', error);
+        }
     }
-
-    searchInput.addEventListener('input', filterUsers);
-    filterSelect.addEventListener('change', filterUsers);
 }
 
-// Kullanıcı detaylarını görüntüleme
-window.viewUserDetails = function(uid) {
-    const modal = document.createElement('div');
-    modal.className = 'modal';
-    
-    firebase.database().ref(`users/${uid}`).once('value')
-        .then((snapshot) => {
-            const user = snapshot.val();
-            modal.innerHTML = `
-                <div class="modal-content">
-                    <h3>Kullanıcı Detayları</h3>
-                    <div class="user-details">
-                        <p><strong>Ad Soyad:</strong> ${user.name} ${user.surname}</p>
-                        <p><strong>Email:</strong> ${user.email}</p>
-                        <p><strong>Kayıt Tarihi:</strong> ${new Date(user.createdAt).toLocaleString()}</p>
-                        <p><strong>Son Görülme:</strong> ${new Date(user.lastSeen).toLocaleString()}</p>
-                        <p><strong>Toplam Görüşme:</strong> ${user.totalChats || 0}</p>
-                    </div>
-                    <button onclick="this.parentElement.parentElement.remove()">Kapat</button>
+// Seçilen kullanıcıyla görüşme başlat
+window.startChatWithUser = async function(userId) {
+    try {
+        // Kullanıcı bilgilerini al
+        const userSnapshot = await firebase.database().ref(`users/${userId}`).once('value');
+        const userData = userSnapshot.val();
+
+        if (!userData) {
+            throw new Error('Kullanıcı bulunamadı');
+        }
+
+        // Yeni chat oluştur
+        const chatId = firebase.database().ref('chats').push().key;
+        
+        // Chat verilerini kaydet
+        await firebase.database().ref(`chats/${chatId}`).set({
+            userId: userId,
+            adminId: firebase.auth().currentUser.uid,
+            userInfo: {
+                name: userData.name,
+                surname: userData.surname,
+                email: userData.email
+            },
+            startTime: Date.now(),
+            status: 'active',
+            messages: {}
+        });
+
+        // Kullanıcıyı sıradan çıkar
+        await firebase.database().ref(`queue/${userId}`).remove();
+
+        // Support durumunu güncelle
+        await firebase.database().ref('supportStatus').update({
+            busy: true,
+            currentUser: userId
+        });
+
+        // Chat penceresini aç
+        openAdminChatWindow(chatId, userData);
+
+        showNotification('Görüşme başlatıldı', 'success');
+    } catch (error) {
+        console.error('Görüşme başlatma hatası:', error);
+        showNotification('Görüşme başlatılamadı', 'error');
+    }
+};
+
+// Admin chat penceresini aç
+function openAdminChatWindow(chatId, userData) {
+    const chatModal = document.getElementById('chatModal');
+    const chatMessages = document.getElementById('chatMessages');
+    const chatInput = document.getElementById('chatInput');
+    const sendMessage = document.getElementById('sendMessage');
+
+    if (chatModal && chatMessages) {
+        // Chat modalını göster
+        chatModal.style.display = 'block';
+        
+        // Chat başlığını güncelle
+        chatMessages.innerHTML = `
+            <div class="chat-header-info">
+                <div class="user-info">
+                    <span class="user-name">${userData.name} ${userData.surname}</span>
+                    <span class="user-email">${userData.email}</span>
                 </div>
-            `;
-            document.body.appendChild(modal);
-        });
-};
+            </div>
+            <div class="messages-container"></div>
+        `;
 
-// Sıra yönetimi görüntüleme
-window.toggleQueueList = function() {
-    const adminContent = document.getElementById('adminContent');
-    
-    firebase.database().ref('queue').once('value')
-        .then((snapshot) => {
-            const queue = snapshot.val() || {};
-            let html = `
-                <div class="queue-management">
-                    <h4>Sıradaki Kullanıcılar</h4>
-                    <div class="queue-list">
-            `;
-            
-            Object.entries(queue).forEach(([uid, queueData]) => {
-                html += `
-                    <div class="queue-item">
-                        <div class="queue-info">
-                            <span class="user-name">${queueData.name}</span>
-                            <span class="user-email">${queueData.email}</span>
-                            <span class="queue-time">Bekleme: ${formatWaitingTime(Date.now() - queueData.timestamp)}</span>
-                        </div>
-                        <div class="queue-actions">
-                            <button onclick="removeFromQueue('${uid}')" class="remove-btn">Sıradan Çıkar</button>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            html += `</div></div>`;
-            adminContent.innerHTML = html;
-        });
-};
+        // Input alanını aktifleştir
+        if (chatInput) {
+            chatInput.disabled = false;
+            chatInput.placeholder = 'Mesajınızı yazın...';
+            chatInput.focus();
+        }
+        if (sendMessage) sendMessage.disabled = false;
 
-// Bekleme süresini formatla
-function formatWaitingTime(ms) {
-    const minutes = Math.floor(ms / 60000);
-    const seconds = Math.floor((ms % 60000) / 1000);
-    return `${minutes}dk ${seconds}sn`;
+        // Chat ID'yi sakla
+        currentChatId = chatId;
+
+        // Mesajları dinlemeye başla
+        listenToMessages();
+
+        // Hoşgeldin mesajını gönder
+        sendChatMessage('Merhaba, size nasıl yardımcı olabilirim?');
+    }
 }
 
-// Sayfa yüklendiğinde admin panelini başlat
-document.addEventListener('DOMContentLoaded', () => {
-    initializeAdminPanel();
-}); 
+// CSS güncellemeleri
+const chatStyles = `
+.chat-header {
+    background: var(--bg-dark);
+    padding: 10px;
+    border-radius: 8px 8px 0 0;
+    margin-bottom: 10px;
+}
+
+.chat-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.chat-status i.online {
+    color: #00ff00;
+    font-size: 12px;
+}
+
+.messages-container {
+    height: 400px;
+    overflow-y: auto;
+    padding: 15px;
+    background: var(--bg-card);
+    border-radius: 0 0 8px 8px;
+}
+
+.message {
+    max-width: 80%;
+    margin: 8px 0;
+    padding: 10px;
+    border-radius: 8px;
+    word-break: break-word;
+}
+
+.message.user {
+    background: var(--primary-color);
+    color: white;
+    margin-left: auto;
+}
+
+.message.admin {
+    background: var(--bg-dark);
+    color: var(--text-primary);
+}
+`;
+
+// Mevcut stil elementini güncelle
+const existingStyle = document.getElementById('chatStyles');
+if (existingStyle) {
+    existingStyle.textContent += chatStyles;
+} else {
+    const style = document.createElement('style');
+    style.id = 'chatStyles';
+    style.textContent = chatStyles;
+    document.head.appendChild(style);
+}
+
+// Sıraya ekleme fonksiyonu
+async function addToQueue() {
+    try {
+        if (!userInfo) {
+            userInfo = await getUserInfo(firebase.auth().currentUser.uid);
+        }
+
+        // Önce sırada olup olmadığımızı kontrol et
+        const queueSnapshot = await firebase.database().ref(`queue/${userInfo.uid}`).once('value');
+        if (queueSnapshot.exists()) {
+            showNotification('Zaten sıradasınız', 'warning');
+            return;
+        }
+
+        isInQueue = true;
+        const queueRef = firebase.database().ref('queue');
+        
+        // Sıraya ekle
+        await queueRef.child(userInfo.uid).set({
+            name: userInfo.name,
+            surname: userInfo.surname,
+            email: userInfo.email,
+            timestamp: Date.now(),
+            online: true
+        });
+
+        // Sıra pozisyonunu takip et
+        listenToQueuePosition();
+
+        // Sıra mesajını göster
+        const queueMessage = document.getElementById('queueMessage');
+        if (queueMessage) {
+            queueMessage.style.display = 'block';
+            queueMessage.innerHTML = `
+                <div class="queue-info">
+                    <i class="fas fa-clock"></i>
+                    <p>Müşteri temsilcilerimiz şu an meşgul.</p>
+                    <p>Sıradaki pozisyonunuz: <span id="queuePosition">Hesaplanıyor...</span></p>
+                </div>
+                <div class="queue-loader"></div>
+            `;
+        }
+
+        showNotification('Sıraya alındınız', 'info');
+
+    } catch (error) {
+        console.error('Sıraya ekleme hatası:', error);
+        showNotification('Sıraya eklenirken bir hata oluştu', 'error');
+        isInQueue = false;
+    }
+}
+
+// Sıra pozisyonunu takip et
+function listenToQueuePosition() {
+    if (!userInfo || !isInQueue) return;
+
+    const queueRef = firebase.database().ref('queue');
+    queueRef.on('value', (snapshot) => {
+        const queue = snapshot.val() || {};
+        const queueArray = Object.entries(queue)
+            .sort(([, a], [, b]) => a.timestamp - b.timestamp);
+        
+        const position = queueArray.findIndex(([uid]) => uid === userInfo.uid) + 1;
+        
+        // Pozisyonu güncelle
+        const positionElement = document.getElementById('queuePosition');
+        if (positionElement) {
+            positionElement.textContent = position > 0 ? position : 'Hesaplanıyor...';
+        }
+
+        // Eğer sıra bize geldiyse
+        if (position === 1) {
+            checkAndConnectToSupport();
+        }
+    });
+}
+
+// Destek ekibine bağlanmayı kontrol et
+async function checkAndConnectToSupport() {
+    try {
+        const status = await checkSupportAvailability();
+        if (status.available) {
+            // Sıradan çık
+            await firebase.database().ref(`queue/${userInfo.uid}`).remove();
+            isInQueue = false;
+
+            // Chat'i başlat
+            const chatId = await startChat();
+            
+            // Chat arayüzünü güncelle
+            const chatMessages = document.getElementById('chatMessages');
+            if (chatMessages) {
+                chatMessages.innerHTML = `
+                    <div class="chat-header">
+                        <div class="chat-status">
+                            <i class="fas fa-circle online"></i>
+                            <span>Müşteri Temsilcisine Bağlandınız</span>
+                        </div>
+                    </div>
+                    <div class="messages-container"></div>
+                `;
+            }
+
+            // Input alanını aktifleştir
+            const chatInput = document.getElementById('chatInput');
+            const sendMessage = document.getElementById('sendMessage');
+            if (chatInput) {
+                chatInput.disabled = false;
+                chatInput.placeholder = 'Mesajınızı yazın...';
+                chatInput.focus();
+            }
+            if (sendMessage) sendMessage.disabled = false;
+
+            // Sıra mesajını gizle
+            const queueMessage = document.getElementById('queueMessage');
+            if (queueMessage) queueMessage.style.display = 'none';
+
+            // Mesajları dinlemeye başla
+            listenToMessages();
+
+            showNotification('Müşteri temsilcisine bağlandınız', 'success');
+        }
+    } catch (error) {
+        console.error('Bağlantı hatası:', error);
+        showNotification('Bağlantı kurulamadı', 'error');
+    }
+}
+
+// CSS eklemeleri
+const queueStyles = `
+.queue-info {
+    text-align: center;
+    padding: 20px;
+    background: var(--bg-dark);
+    border-radius: 8px;
+    margin: 10px 0;
+}
+
+.queue-loader {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--primary-color);
+    border-top: 3px solid transparent;
+    border-radius: 50%;
+    margin: 15px auto;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+#queuePosition {
+    font-weight: bold;
+    color: var(--primary-color);
+}
+`;
+
+// Stil ekle
+const style = document.createElement('style');
+style.textContent += queueStyles;
+document.head.appendChild(style);
