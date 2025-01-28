@@ -7,12 +7,26 @@ document.addEventListener('DOMContentLoaded', () => {
     if (registerForm) {
         registerForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            const name = document.getElementById('registerName').value;
+            const surname = document.getElementById('registerSurname').value;
             const email = document.getElementById('registerEmail').value;
             const password = document.getElementById('registerPassword').value;
 
             try {
-                await createUserWithEmailAndPassword(auth, email, password);
-                alert('Kayıt başarılı! Giriş yapabilirsiniz.');
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+
+                // Kullanıcı bilgilerini kaydet
+                await firebase.database().ref('users/' + user.uid).set({
+                    name: name,
+                    surname: surname,
+                    email: email
+                });
+
+                // Email doğrulama gönder
+                await user.sendEmailVerification();
+                
+                alert('Kayıt başarılı! Lütfen email adresinizi doğrulayın.');
                 window.location.href = 'index.html';
             } catch (error) {
                 alert('Kayıt hatası: ' + error.message);
